@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { Server as IOServer } from 'socket.io';
 import { logger } from './util/logger.js';
+import { LobbyManager } from './lobby/LobbyManager.js';
+import { registerHandlers } from './socket/handlers.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -26,12 +28,8 @@ async function main() {
     pingTimeout: 20_000,
   });
 
-  io.on('connection', (socket) => {
-    logger.info({ socketId: socket.id }, 'socket connected');
-    socket.on('disconnect', (reason) => {
-      logger.info({ socketId: socket.id, reason }, 'socket disconnected');
-    });
-  });
+  const lobbyManager = new LobbyManager();
+  registerHandlers(io, lobbyManager);
 
   await app.listen({ host: HOST, port: PORT });
   logger.info({ port: PORT, host: HOST, clientOrigin: CLIENT_ORIGIN }, 'server listening');
