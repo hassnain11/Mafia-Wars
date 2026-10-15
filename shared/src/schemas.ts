@@ -39,6 +39,18 @@ export const PlayerIdSchema = z.string().min(1).max(64);
 export const CreateLobbySchema = z.object({ name: NameSchema });
 export type CreateLobbyPayload = z.infer<typeof CreateLobbySchema>;
 
+export const CreateBotLobbySchema = z.object({
+  name: NameSchema,
+  botCount: z.number().int().min(4).max(11).optional(),
+});
+export type CreateBotLobbyPayload = z.infer<typeof CreateBotLobbySchema>;
+
+export const QuickMatchSchema = z.object({ name: NameSchema });
+export type QuickMatchPayload = z.infer<typeof QuickMatchSchema>;
+
+export const LeaveQueueSchema = z.object({}).strict();
+export type LeaveQueuePayload = z.infer<typeof LeaveQueueSchema>;
+
 export const JoinLobbySchema = z.object({ name: NameSchema, code: LobbyCodeSchema });
 export type JoinLobbyPayload = z.infer<typeof JoinLobbySchema>;
 

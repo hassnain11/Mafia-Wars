@@ -15,7 +15,7 @@ import {
 import { socket } from '../socket';
 import { clearPersistedSession, useGameStore } from '../store/gameStore';
 import { pushToast } from '../components/Toast';
-import { Crown, Copy } from 'lucide-react';
+import { Crown, Copy, Bot } from 'lucide-react';
 
 export function LobbyPage() {
   const { code } = useParams();
@@ -96,6 +96,7 @@ export function LobbyPage() {
               />
               <span className={p.id === playerId ? 'font-semibold' : ''}>{p.name}</span>
               {p.isHost && <Crown size={14} className="text-amber-300" />}
+              {p.isBot && <Bot size={14} className="text-slate-500" aria-label="bot" />}
               {p.id === playerId && <span className="text-xs text-slate-400">(you)</span>}
             </li>
           ))}

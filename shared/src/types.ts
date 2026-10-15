@@ -42,6 +42,7 @@ export interface PublicPlayer {
   isHost: boolean;
   alive: boolean;
   connected: boolean;
+  isBot: boolean;
 }
 
 export interface Settings {
@@ -150,4 +151,20 @@ export interface CreateLobbyAck {
 
 export interface JoinLobbyAck {
   playerId: string;
+}
+
+export interface QuickMatchAck {
+  queued: true;
+  position: number;
+  needed: number;
+}
+
+export interface MatchFoundPayload {
+  code: string;
+  playerId: string;
+}
+
+export interface QueueUpdatePayload {
+  position: number;
+  needed: number;
 }

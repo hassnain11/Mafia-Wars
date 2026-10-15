@@ -3,26 +3,33 @@ import { z } from 'zod';
 import {
   CastVoteSchema,
   ChatSendSchema,
+  CreateBotLobbySchema,
   CreateLobbySchema,
   ERROR_CODE,
   EV,
   JoinLobbySchema,
   LeaveLobbySchema,
+  LeaveQueueSchema,
   MAX_PLAYERS,
   MIN_PLAYERS,
   NightDetectiveInvestigateSchema,
   NightDoctorPickSchema,
   NightMafiaPickSchema,
   PHASE,
+  QuickMatchSchema,
   ReconnectSchema,
   RECONNECT_GRACE_MS,
   ReturnToLobbySchema,
   ROLE,
   StartGameSchema,
   UpdateSettingsSchema,
+  mafiaCountMax,
   type CreateLobbyAck,
   type ErrorCode,
   type JoinLobbyAck,
+  type MatchFoundPayload,
+  type QueueUpdatePayload,
+  type QuickMatchAck,
 } from '@mafia/shared';
 import { logger } from '../util/logger.js';
 import { LobbyManager } from '../lobby/LobbyManager.js';
@@ -30,6 +37,8 @@ import type { Lobby } from '../lobby/Lobby.js';
 import { broadcastLobbyState, emitError } from './broadcast.js';
 import { GameEngine } from '../game/GameEngine.js';
 import { RateLimiter } from './rateLimiter.js';
+import { BotManager } from '../bots/BotManager.js';
+import { MatchQueue } from '../matchmaking/Queue.js';
 
 type Ack<T> = (
   res: { ok: true; data: T } | { ok: false; error: { code: ErrorCode; message: string } },
@@ -63,12 +72,53 @@ function parse<T>(schema: z.ZodType<T>, payload: unknown): T | null {
 export function registerHandlers(io: IOServer, manager: LobbyManager): void {
   const sockets = new Map<string, Socket>();
   const limiter = new RateLimiter();
+  const queue = new MatchQueue();
 
   const engine = new GameEngine(io, (_lobby, playerId) => {
     const p = _lobby.getPlayer(playerId);
     const sid = p?.socketId;
     return sid ? sockets.get(sid) : undefined;
   });
+
+  const bots = new BotManager({
+    onMafiaPick: (lobby, mafiaId, targetId) => engine.onMafiaPick(lobby, mafiaId, targetId),
+    onDoctorPick: (lobby, doctorId, targetId) => engine.onDoctorPick(lobby, doctorId, targetId),
+    onDetectivePick: (lobby, detId, targetId) => engine.onDetectivePick(lobby, detId, targetId),
+    onCastVote: (lobby, voterId, targetId) => engine.onCastVote(lobby, voterId, targetId),
+  });
+  engine.setPhaseListener((lobby, phase) => bots.onPhase(lobby, phase));
+
+  function broadcastQueue(): void {
+    for (const e of queue.all()) {
+      const sock = sockets.get(e.socketId);
+      sock?.emit(EV.QUEUE_UPDATE, {
+        position: queue.positionOf(e.socketId),
+        needed: queue.needed(),
+      } satisfies QueueUpdatePayload);
+    }
+  }
+
+  function tryMatchmake(): void {
+    const matched = queue.takeMatch();
+    if (!matched) {
+      broadcastQueue();
+      return;
+    }
+    const lobby = manager.create();
+    for (let i = 0; i < matched.length; i++) {
+      const entry = matched[i]!;
+      const sock = sockets.get(entry.socketId);
+      if (!sock) continue;
+      const player = lobby.addPlayer(entry.name, i === 0, sock.id);
+      sock.join(lobby.code);
+      sock.data.lobbyCode = lobby.code;
+      sock.data.playerId = player.id;
+      sock.emit(EV.MATCH_FOUND, { code: lobby.code, playerId: player.id } satisfies MatchFoundPayload);
+    }
+    lobby.clampSettings();
+    broadcastLobbyState(io, lobby);
+    broadcastQueue();
+  }
 
   function on<Payload = unknown>(
     socket: Socket,
@@ -118,6 +168,57 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       );
       ack({ ok: true, data: { code: lobby.code, playerId: player.id } });
       broadcastLobbyState(io, lobby);
+    });
+
+    on(socket, EV.CREATE_BOT_LOBBY, (payload, ackRaw) => {
+      const ack = ackRaw as Ack<CreateLobbyAck>;
+      const parsed = parse(CreateBotLobbySchema, payload);
+      if (!parsed) return ack(fail(ERROR_CODE.NAME_INVALID));
+
+      const botCount = parsed.botCount ?? 9;
+      const lobby = manager.create();
+      const player = lobby.addPlayer(parsed.name, true, socket.id);
+      socket.join(lobby.code);
+      socket.data.lobbyCode = lobby.code;
+      socket.data.playerId = player.id;
+
+      const taken = new Set<string>([player.name.toLowerCase()]);
+      const names = bots.pickBotNames(botCount, taken);
+      for (const name of names) lobby.addBot(name);
+
+      const total = lobby.players.length;
+      lobby.settings.mafiaCount = Math.max(1, Math.min(3, Math.floor(total / 4)));
+      lobby.clampSettings();
+
+      logger.info(
+        { code: lobby.code, playerId: player.id, botCount },
+        'bot lobby created',
+      );
+      ack({ ok: true, data: { code: lobby.code, playerId: player.id } });
+      broadcastLobbyState(io, lobby);
+    });
+
+    on(socket, EV.QUICK_MATCH, (payload, ackRaw) => {
+      const ack = ackRaw as Ack<QuickMatchAck>;
+      const parsed = parse(QuickMatchSchema, payload);
+      if (!parsed) return ack(fail(ERROR_CODE.NAME_INVALID));
+      if (socket.data.lobbyCode) return ack(fail(ERROR_CODE.LOBBY_IN_PROGRESS));
+      if (queue.isNameTaken(parsed.name)) return ack(fail(ERROR_CODE.NAME_TAKEN));
+      queue.add({ socketId: socket.id, name: parsed.name, joinedAt: Date.now() });
+      ack({
+        ok: true,
+        data: {
+          queued: true,
+          position: queue.positionOf(socket.id),
+          needed: queue.needed(),
+        },
+      });
+      tryMatchmake();
+    });
+
+    on(socket, EV.LEAVE_QUEUE, (payload) => {
+      if (!parse(LeaveQueueSchema, payload ?? {})) return;
+      if (queue.removeBySocket(socket.id)) broadcastQueue();
     });
 
     on(socket, EV.JOIN_LOBBY, (payload, ackRaw) => {
@@ -322,6 +423,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
     socket.on('disconnect', (reason) => {
       sockets.delete(socket.id);
       limiter.drop(socket.id);
+      if (queue.removeBySocket(socket.id)) broadcastQueue();
       logger.info({ socketId: socket.id, reason }, 'socket disconnected');
       handleLeave(socket, manager, io, 'disconnect');
     });

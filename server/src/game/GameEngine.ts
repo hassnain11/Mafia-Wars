@@ -24,10 +24,16 @@ import { checkWin } from './winConditions.js';
 import { broadcastLobbyState } from '../socket/broadcast.js';
 
 export class GameEngine {
+  private onPhaseEntered: ((lobby: Lobby, phase: Phase) => void) | null = null;
+
   constructor(
     private readonly io: IOServer,
     private readonly getSocketByPlayerId: (lobby: Lobby, playerId: string) => Socket | undefined,
   ) {}
+
+  setPhaseListener(fn: (lobby: Lobby, phase: Phase) => void): void {
+    this.onPhaseEntered = fn;
+  }
 
   start(lobby: Lobby): void {
     lobby.resetForNewGame();
@@ -55,6 +61,8 @@ export class GameEngine {
       const t = startTimer(ms, () => this.onTimerEnd(lobby, phase));
       lobby.phaseTimerCancel = t.cancel;
     }
+
+    this.onPhaseEntered?.(lobby, phase);
   }
 
   private phaseDurationMs(lobby: Lobby, phase: Phase): number {
@@ -284,7 +292,7 @@ export class GameEngine {
 
   // ---- Voting -------------------------------------------------------------
 
-  onCastVote(lobby: Lobby, voterId: string, target: string): boolean {
+  onCastVote(lobby: Lobby, voterId: string, target: string | 'skip'): boolean {
     if (lobby.phase !== PHASE.VOTING && lobby.phase !== PHASE.VOTE_TIEBREAK) return false;
     lobby.votes.set(voterId, target);
     broadcastLobbyState(this.io, lobby);

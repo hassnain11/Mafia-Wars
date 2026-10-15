@@ -4,6 +4,9 @@
 export const EV = {
   // Client → Server
   CREATE_LOBBY: 'c.createLobby',
+  CREATE_BOT_LOBBY: 'c.createBotLobby',
+  QUICK_MATCH: 'c.quickMatch',
+  LEAVE_QUEUE: 'c.leaveQueue',
   JOIN_LOBBY: 'c.joinLobby',
   LEAVE_LOBBY: 'c.leaveLobby',
   UPDATE_SETTINGS: 'c.updateSettings',
@@ -17,6 +20,8 @@ export const EV = {
   RECONNECT: 'c.reconnect',
 
   // Server → Client
+  MATCH_FOUND: 's.matchFound',
+  QUEUE_UPDATE: 's.queueUpdate',
   LOBBY_STATE: 's.lobbyState',
   SELF_VIEW: 's.selfView',
   PHASE_CHANGED: 's.phaseChanged',

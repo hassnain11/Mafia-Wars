@@ -16,6 +16,7 @@ export interface InternalPlayer extends PublicPlayer {
   socketId: string | null;
   disconnectAt: number | null;
   joinedAt: number;
+  isBot: boolean;
 }
 
 export interface NightActions {
@@ -83,9 +84,27 @@ export class Lobby {
       socketId,
       disconnectAt: null,
       joinedAt: Date.now(),
+      isBot: false,
     };
     this.players.push(player);
     return player;
+  }
+
+  addBot(name: string): InternalPlayer {
+    const bot: InternalPlayer = {
+      id: randomUUID(),
+      name,
+      isHost: false,
+      alive: true,
+      connected: true,
+      role: null,
+      socketId: null,
+      disconnectAt: null,
+      joinedAt: Date.now(),
+      isBot: true,
+    };
+    this.players.push(bot);
+    return bot;
   }
 
   removePlayer(playerId: string): InternalPlayer | undefined {
@@ -154,6 +173,7 @@ export class Lobby {
         isHost: p.isHost,
         alive: p.alive,
         connected: p.connected,
+        isBot: p.isBot,
       })),
       round: this.round,
       phaseEndsAt: this.phaseEndsAt,
