@@ -1,0 +1,36 @@
+# Fly.io app spec — set `app = "<your-chosen-name>"` after `fly launch`.
+# Primary region: fra (Frankfurt) — low latency for Pakistan/EU/MENA.
+# Change `primary_region` to one closer if your players are elsewhere.
+
+app = "mafia-wars"
+primary_region = "fra"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  PORT = "8080"
+  HOST = "0.0.0.0"
+  LOG_LEVEL = "info"
+  # CLIENT_ORIGIN is set via `fly secrets set` after Cloudflare Pages URL is known.
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

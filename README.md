@@ -4,10 +4,20 @@ A real-time, browser-based social deduction game inspired by classic Mafia / Amo
 Friends join a lobby via a code, roles are assigned secretly (Mafia, Doctor, Detective, Civilian),
 and each round follows a night → discussion → voting cycle until Mafia or Civilians win.
 
-**Status:** Planning phase. No code yet. These documents are the full spec.
+**Status:** Playable. See [`DEPLOY.md`](./DEPLOY.md) to go live.
 **Platform:** Web (desktop + mobile browsers). No install.
 **Multiplayer:** Online, real-time via WebSockets.
 **Budget:** Zero — all hosting on free tiers.
+
+## Quick start (local)
+```bash
+npm install
+npm run dev
+```
+Opens the server on `:8080` and the client on `:5173`. Two browser tabs = full game.
+
+## Deploy
+See [`DEPLOY.md`](./DEPLOY.md) for GitHub + Fly.io + Cloudflare Pages, step by step.
 
 ---
 

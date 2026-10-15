@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+.git
+.github
+*.log
+.env
+.env.*
+client
+!client/package.json
+.claude
