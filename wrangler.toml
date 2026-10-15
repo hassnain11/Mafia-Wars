@@ -1,0 +1,9 @@
+# Cloudflare Workers + Static Assets config for the Mafia Wars client.
+# The server lives on Fly.io; this just serves the Vite-built SPA.
+
+name = "mafia-wars"
+compatibility_date = "2024-11-18"
+
+[assets]
+directory = "./client/dist"
+not_found_handling = "single-page-application"
