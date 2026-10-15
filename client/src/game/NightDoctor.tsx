@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { EV, ROLE } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
+import { Button, Card, Medallion } from '../components/ui';
 
 export function NightDoctor() {
   const lobby = useGameStore((s) => s.lobby);
@@ -17,21 +19,12 @@ export function NightDoctor() {
   const isDoctor = self.myRole === ROLE.DOCTOR;
   const canAct = isDoctor && me?.alive;
 
-  if (self.isSpectator) {
-    return (
-      <div className="flex flex-col gap-4">
-        <PhaseHeader title="🌙 Night" endsAt={lobby.phaseEndsAt} />
-        <SpectatorBanner round={lobby.round} />
-        <WaitingNote text="The doctor is making their rounds…" />
-      </div>
-    );
-  }
-
   if (!canAct) {
     return (
       <div className="flex flex-col gap-4">
-        <PhaseHeader title="🌙 Night" endsAt={lobby.phaseEndsAt} />
-        <WaitingNote text="The doctor is making their rounds…" />
+        <PhaseHeader title="Night" subtitle="A healer walks the halls" endsAt={lobby.phaseEndsAt} icon="🩺" />
+        {self.isSpectator && <SpectatorBanner round={lobby.round} />}
+        <Waiting text="The doctor is making their rounds…" />
       </div>
     );
   }
@@ -47,47 +40,59 @@ export function NightDoctor() {
   return (
     <div className="flex flex-col gap-4">
       <PhaseHeader
-        title="🩺 Save someone"
-        subtitle="Pick one player to protect this round."
+        title="Save a soul"
+        subtitle="Pick one to protect from the night."
         endsAt={lobby.phaseEndsAt}
+        icon="🩺"
       />
-      <ul className="divide-y divide-slate-800 rounded-lg bg-slate-900 border border-slate-800">
-        {living.map((t) => {
-          const selected = pick === t.id;
-          return (
-            <li key={t.id}>
-              <button
+      <Card>
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+          {living.map((t) => {
+            const selected = pick === t.id;
+            return (
+              <motion.button
+                key={t.id}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 disabled={sent}
                 onClick={() => setPick(t.id)}
-                className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800 disabled:opacity-60 ${
-                  selected ? 'bg-emerald-500/20' : ''
+                className={`flex flex-col items-center gap-2 p-2 rounded-lg transition disabled:opacity-60 ${
+                  selected
+                    ? 'bg-emerald-500/15 ring-1 ring-emerald-500/60 shadow-glow'
+                    : 'hover:bg-night-700/40'
                 }`}
               >
-                <span>
+                <Medallion
+                  name={t.name}
+                  size="md"
+                  roleColor={selected ? '#34d1a0' : undefined}
+                />
+                <div className="text-xs text-parchment-200/90 truncate max-w-full">
                   {t.name}
-                  {t.id === pid && <span className="text-xs text-slate-400 ml-2">(self)</span>}
-                </span>
-                {selected && <span className="text-xs text-emerald-400">chosen</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <button
+                  {t.id === pid && <span className="text-parchment-200/50"> (self)</span>}
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+      </Card>
+      <Button
+        variant="primary"
         disabled={!pick || sent}
         onClick={submit}
-        className="w-full rounded-lg bg-emerald-500 text-slate-950 py-3 font-semibold disabled:opacity-50"
+        fullWidth
       >
-        {sent ? 'Submitted' : 'Confirm Save'}
-      </button>
+        {sent ? 'Blessing sealed' : 'Confirm save'}
+      </Button>
     </div>
   );
 }
 
-function WaitingNote({ text }: { text: string }) {
+function Waiting({ text }: { text: string }) {
   return (
-    <div className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-6 text-center text-slate-400">
-      {text}
-    </div>
+    <Card className="text-center py-10">
+      <div className="text-6xl mb-4 animate-slowfloat">🕯</div>
+      <div className="font-display italic text-parchment-200/70">{text}</div>
+    </Card>
   );
 }

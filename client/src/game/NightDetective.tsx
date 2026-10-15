@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { EV, ROLE } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
+import { Button, Card, Medallion } from '../components/ui';
 
 export function NightDetective() {
   const lobby = useGameStore((s) => s.lobby);
@@ -18,21 +20,12 @@ export function NightDetective() {
   const isDetective = self.myRole === ROLE.DETECTIVE;
   const canAct = isDetective && me?.alive;
 
-  if (self.isSpectator) {
-    return (
-      <div className="flex flex-col gap-4">
-        <PhaseHeader title="🌙 Night" endsAt={lobby.phaseEndsAt} />
-        <SpectatorBanner round={lobby.round} />
-        <WaitingNote text="The detective is investigating…" />
-      </div>
-    );
-  }
-
   if (!canAct) {
     return (
       <div className="flex flex-col gap-4">
-        <PhaseHeader title="🌙 Night" endsAt={lobby.phaseEndsAt} />
-        <WaitingNote text="The detective is investigating…" />
+        <PhaseHeader title="Night" subtitle="Shadows observed" endsAt={lobby.phaseEndsAt} icon="🔍" />
+        {self.isSpectator && <SpectatorBanner round={lobby.round} />}
+        <Waiting text="The detective is investigating…" />
       </div>
     );
   }
@@ -48,58 +41,75 @@ export function NightDetective() {
   return (
     <div className="flex flex-col gap-4">
       <PhaseHeader
-        title="🔍 Investigate"
-        subtitle="You will privately learn whether they are mafia."
+        title="Investigate"
+        subtitle="You alone will know the truth."
         endsAt={lobby.phaseEndsAt}
+        icon="🔍"
       />
-      <ul className="divide-y divide-slate-800 rounded-lg bg-slate-900 border border-slate-800">
-        {targets.map((t) => {
-          const selected = pick === t.id;
-          return (
-            <li key={t.id}>
-              <button
+      <Card>
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+          {targets.map((t) => {
+            const selected = pick === t.id;
+            return (
+              <motion.button
+                key={t.id}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 disabled={sent}
                 onClick={() => setPick(t.id)}
-                className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800 disabled:opacity-60 ${
-                  selected ? 'bg-sky-500/20' : ''
+                className={`flex flex-col items-center gap-2 p-2 rounded-lg transition disabled:opacity-60 ${
+                  selected
+                    ? 'bg-sky-500/15 ring-1 ring-sky-400/60 shadow-glow'
+                    : 'hover:bg-night-700/40'
                 }`}
               >
-                <span>{t.name}</span>
-                {selected && <span className="text-xs text-sky-400">chosen</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <button
-        disabled={!pick || sent}
-        onClick={submit}
-        className="w-full rounded-lg bg-sky-500 text-slate-950 py-3 font-semibold disabled:opacity-50"
-      >
-        {sent ? 'Submitted' : 'Confirm'}
-      </button>
+                <Medallion
+                  name={t.name}
+                  size="md"
+                  roleColor={selected ? '#7cc0ff' : undefined}
+                />
+                <div className="text-xs text-parchment-200/90 truncate max-w-full">{t.name}</div>
+              </motion.button>
+            );
+          })}
+        </div>
+      </Card>
+      <Button variant="primary" disabled={!pick || sent} onClick={submit} fullWidth>
+        {sent ? 'Investigation sent' : 'Confirm investigation'}
+      </Button>
 
       {investigations.length > 0 && (
-        <div className="rounded-lg bg-slate-900 border border-slate-800 p-3 text-sm">
-          <div className="text-slate-400 text-xs mb-1">Your investigations</div>
-          {investigations.map((r, i) => (
-            <div key={i} className="text-slate-300">
-              R{r.round}: {r.targetName} —{' '}
-              <span className={r.isMafia ? 'text-red-400' : 'text-emerald-400'}>
-                {r.isMafia ? 'MAFIA' : 'not mafia'}
-              </span>
-            </div>
-          ))}
-        </div>
+        <Card>
+          <div className="text-xs uppercase tracking-[0.2em] text-parchment-200/60 mb-2">
+            Casefile
+          </div>
+          <div className="space-y-1">
+            {investigations.map((r, i) => (
+              <div key={i} className="flex items-center justify-between text-sm">
+                <span className="text-parchment-200/80 font-display">
+                  R{r.round} · {r.targetName}
+                </span>
+                <span
+                  className={`font-serif text-xs tracking-widest uppercase ${
+                    r.isMafia ? 'text-blood-500' : 'text-emerald-400'
+                  }`}
+                >
+                  {r.isMafia ? 'Mafia' : 'Not mafia'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
     </div>
   );
 }
 
-function WaitingNote({ text }: { text: string }) {
+function Waiting({ text }: { text: string }) {
   return (
-    <div className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-6 text-center text-slate-400">
-      {text}
-    </div>
+    <Card className="text-center py-10">
+      <div className="text-6xl mb-4 animate-slowfloat">🔍</div>
+      <div className="font-display italic text-parchment-200/70">{text}</div>
+    </Card>
   );
 }

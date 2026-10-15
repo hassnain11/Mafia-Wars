@@ -6,12 +6,14 @@ import { LobbyPage } from './pages/LobbyPage';
 import { GamePage } from './pages/GamePage';
 import { Header } from './components/Header';
 import { ToastHost } from './components/Toast';
+import { Backdrop } from './components/Backdrop';
 
 function Shell() {
   return (
-    <div className="min-h-full flex flex-col">
+    <div className="min-h-full flex flex-col relative">
+      <Backdrop />
       <Header />
-      <main className="flex-1 w-full max-w-screen-sm mx-auto px-4 py-6">
+      <main className="flex-1 w-full max-w-screen-sm mx-auto px-4 py-6 relative z-10">
         <Outlet />
       </main>
       <ToastHost />

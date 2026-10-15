@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   DISCUSSION_SECONDS_MAX,
@@ -15,7 +16,9 @@ import {
 import { socket } from '../socket';
 import { clearPersistedSession, useGameStore } from '../store/gameStore';
 import { pushToast } from '../components/Toast';
-import { Crown, Copy, Bot } from 'lucide-react';
+import { Button, Card, Chip, SectionTitle } from '../components/ui';
+import { Medallion } from '../components/ui';
+import { Copy, LogOut, Play } from 'lucide-react';
 
 export function LobbyPage() {
   const { code } = useParams();
@@ -32,13 +35,13 @@ export function LobbyPage() {
   const maxMafia = Math.max(1, mafiaCountMax(lobby?.players.length ?? 3));
   const canStart = isHost && (lobby?.players.length ?? 0) >= MIN_PLAYERS;
 
-  if (!lobby || !me) return <div className="text-center text-slate-400">Loading…</div>;
+  if (!lobby || !me) return <div className="text-center text-parchment-200/60 py-10">Loading…</div>;
 
   function copyCode() {
     if (!code) return;
     navigator.clipboard
       .writeText(code)
-      .then(() => pushToast('Copied', 'info'))
+      .then(() => pushToast('Code copied', 'info'))
       .catch(() => pushToast('Copy failed', 'warn'));
   }
 
@@ -59,52 +62,73 @@ export function LobbyPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="rounded-xl bg-slate-900 border border-slate-800 p-4">
-        <div className="text-xs uppercase tracking-widest text-slate-400">Lobby code</div>
-        <button
-          onClick={copyCode}
-          className="mt-1 flex items-center gap-3 text-3xl font-mono tracking-widest"
-        >
-          {code}
-          <Copy size={18} className="text-slate-400" />
-        </button>
-        <p className="mt-2 text-xs text-slate-500">Tap to copy. Share with your friends.</p>
-      </section>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <Card gold className="text-center">
+          <div className="text-xs uppercase tracking-[0.3em] text-parchment-200/60 mb-2">
+            Lobby code
+          </div>
+          <button
+            onClick={copyCode}
+            className="group inline-flex items-center gap-3 font-serif text-4xl tracking-[0.3em] text-gold-400 hover:text-gold-500 transition"
+          >
+            {code}
+            <Copy size={16} className="opacity-50 group-hover:opacity-100" />
+          </button>
+          <p className="mt-2 text-xs text-parchment-200/50 italic">
+            Share this code with your fellow players.
+          </p>
+        </Card>
+      </motion.div>
 
-      <section className="rounded-xl bg-slate-900 border border-slate-800 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold">
-            Players{' '}
-            <span className="text-slate-400 font-normal">
-              ({lobby.players.length}/12)
-            </span>
-          </h2>
+      <Card>
+        <div className="flex items-center justify-between">
+          <SectionTitle>
+            Players <span className="opacity-50 ml-1">({lobby.players.length}/12)</span>
+          </SectionTitle>
           {lobby.players.length < MIN_PLAYERS && (
-            <span className="text-xs text-amber-400">
+            <Chip className="!text-blood-500 !border-blood-500/40 !bg-blood-500/10">
               need {MIN_PLAYERS - lobby.players.length} more
-            </span>
+            </Chip>
           )}
         </div>
-        <ul className="divide-y divide-slate-800">
-          {lobby.players.map((p) => (
-            <li key={p.id} className="py-2 flex items-center gap-2">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  p.connected ? 'bg-emerald-500' : 'bg-slate-500'
-                }`}
-                aria-hidden
-              />
-              <span className={p.id === playerId ? 'font-semibold' : ''}>{p.name}</span>
-              {p.isHost && <Crown size={14} className="text-amber-300" />}
-              {p.isBot && <Bot size={14} className="text-slate-500" aria-label="bot" />}
-              {p.id === playerId && <span className="text-xs text-slate-400">(you)</span>}
-            </li>
-          ))}
+        <ul className="grid grid-cols-4 sm:grid-cols-5 gap-4 pt-3">
+          <AnimatePresence>
+            {lobby.players.map((p) => (
+              <motion.li
+                key={p.id}
+                layout
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.7 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+                className="flex flex-col items-center gap-2"
+              >
+                <Medallion
+                  name={p.name}
+                  size="md"
+                  connected={p.connected}
+                  isHost={p.isHost}
+                  isBot={p.isBot}
+                />
+                <div
+                  className={`text-xs text-center max-w-full truncate ${
+                    p.id === playerId ? 'text-parchment-100 font-semibold' : 'text-parchment-200/80'
+                  }`}
+                >
+                  {p.name}
+                </div>
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
-      </section>
+      </Card>
 
-      <section className="rounded-xl bg-slate-900 border border-slate-800 p-4">
-        <h2 className="font-semibold mb-3">Rules</h2>
+      <Card>
+        <SectionTitle>Rules</SectionTitle>
         <div className="space-y-3 text-sm">
           <Row label="Mafia count">
             {isHost ? (
@@ -116,7 +140,7 @@ export function LobbyPage() {
                 onChange={(v) => updateSetting('mafiaCount', v)}
               />
             ) : (
-              <span className="font-mono">{lobby.settings.mafiaCount}</span>
+              <span className="font-mono text-parchment-100">{lobby.settings.mafiaCount}</span>
             )}
           </Row>
           <Row label="Doctor">
@@ -182,25 +206,22 @@ export function LobbyPage() {
             )}
           </Row>
         </div>
-      </section>
+      </Card>
 
       {isHost && (
-        <button
+        <Button
+          variant="primary"
           disabled={!canStart}
           onClick={startGame}
-          className="w-full rounded-lg bg-red-500 hover:bg-red-400 disabled:opacity-40 disabled:cursor-not-allowed py-3 font-semibold"
-          title={canStart ? '' : `Need at least ${MIN_PLAYERS} players`}
+          icon={<Play size={16} />}
+          fullWidth
         >
-          Start Game
-        </button>
+          Begin the Night
+        </Button>
       )}
-
-      <button
-        onClick={leave}
-        className="w-full rounded-lg bg-slate-800 hover:bg-slate-700 py-3 text-sm"
-      >
+      <Button variant="ghost" onClick={leave} icon={<LogOut size={14} />} fullWidth>
         Leave Lobby
-      </button>
+      </Button>
     </div>
   );
 }
@@ -208,7 +229,7 @@ export function LobbyPage() {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-slate-300">{label}</span>
+      <span className="text-parchment-200/80 font-display text-base">{label}</span>
       {children}
     </div>
   );
@@ -236,18 +257,18 @@ function NumberStepper({
       <button
         onClick={dec}
         disabled={value <= min}
-        className="w-8 h-8 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40"
+        className="w-8 h-8 rounded-md bg-night-800 hover:bg-night-700 border border-parchment-300/15 disabled:opacity-30 transition"
       >
         −
       </button>
-      <span className="font-mono w-14 text-center">
+      <span className="font-mono w-14 text-center text-parchment-100">
         {value}
         {suffix}
       </span>
       <button
         onClick={inc}
         disabled={value >= max}
-        className="w-8 h-8 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40"
+        className="w-8 h-8 rounded-md bg-night-800 hover:bg-night-700 border border-parchment-300/15 disabled:opacity-30 transition"
       >
         +
       </button>
@@ -260,12 +281,12 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
     <button
       onClick={() => onChange(!value)}
       className={`w-12 h-7 rounded-full relative transition ${
-        value ? 'bg-emerald-500' : 'bg-slate-700'
+        value ? 'bg-gold-500 shadow-goldglow' : 'bg-night-700'
       }`}
       aria-pressed={value}
     >
       <span
-        className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${
+        className={`absolute top-0.5 h-6 w-6 rounded-full bg-parchment-100 transition ${
           value ? 'left-5' : 'left-0.5'
         }`}
       />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { setToastHandler } from '../lib/socketWire';
 
 type ToastItem = {
@@ -34,22 +35,27 @@ export function ToastHost() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 flex flex-col items-center gap-2 px-4">
-      {items.map((t) => (
-        <div
-          key={t.id}
-          className={`pointer-events-auto rounded-lg px-4 py-2 shadow-lg text-sm max-w-sm w-full text-center ${
-            t.level === 'error'
-              ? 'bg-red-600 text-white'
-              : t.level === 'warn'
-                ? 'bg-amber-500 text-slate-950'
-                : 'bg-sky-500 text-white'
-          }`}
-          role="status"
-        >
-          {t.text}
-        </div>
-      ))}
+    <div className="pointer-events-none fixed inset-x-0 bottom-6 flex flex-col items-center gap-2 px-4 z-50">
+      <AnimatePresence>
+        {items.map((t) => (
+          <motion.div
+            key={t.id}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className={`pointer-events-auto surface px-4 py-2.5 text-sm max-w-sm w-full text-center font-display ${
+              t.level === 'error'
+                ? '!border-blood-500/40 !shadow-bloodglow'
+                : t.level === 'warn'
+                  ? '!border-amber-500/40'
+                  : '!border-moonlight/30'
+            }`}
+            role="status"
+          >
+            {t.text}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

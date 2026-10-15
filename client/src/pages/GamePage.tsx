@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'framer-motion';
 import { PHASE } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
 import { RoleReveal } from '../game/RoleReveal';
@@ -14,7 +15,25 @@ export function GamePage() {
   const lobby = useGameStore((s) => s.lobby);
   if (!lobby) return null;
 
-  switch (lobby.phase) {
+  const screen = pickScreen(lobby.phase);
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={lobby.phase}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.3 }}
+      >
+        {screen}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function pickScreen(phase: string) {
+  switch (phase) {
     case PHASE.ROLE_REVEAL:
       return <RoleReveal />;
     case PHASE.NIGHT_MAFIA:
@@ -35,6 +54,6 @@ export function GamePage() {
     case PHASE.ENDED:
       return <EndGame />;
     default:
-      return <div className="text-center text-slate-400">Loading…</div>;
+      return <div className="text-center text-parchment-200/50">Loading…</div>;
   }
 }

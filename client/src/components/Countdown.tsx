@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 
 export function Countdown({ endsAt, className }: { endsAt: number | null; className?: string }) {
   const [remaining, setRemaining] = useState(() => diff(endsAt));
@@ -23,13 +24,23 @@ export function Countdown({ endsAt, className }: { endsAt: number | null; classN
   const label = big
     ? `${seconds}`
     : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+  if (big) {
+    return (
+      <motion.span
+        key={seconds}
+        initial={{ scale: 1.4, opacity: 0.3, color: '#c03838' }}
+        animate={{ scale: 1, opacity: 1, color: '#f3c969' }}
+        transition={{ duration: 0.4 }}
+        className={`font-serif tabular-nums text-3xl font-bold ${className ?? ''}`}
+      >
+        {label}
+      </motion.span>
+    );
+  }
+
   return (
-    <span
-      className={`font-mono tabular-nums ${big ? 'text-3xl font-bold' : 'text-xl'} ${
-        className ?? ''
-      }`}
-      aria-live="off"
-    >
+    <span className={`font-serif tabular-nums text-xl text-parchment-200 ${className ?? ''}`}>
       {label}
     </span>
   );

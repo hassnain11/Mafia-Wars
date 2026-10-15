@@ -1,8 +1,10 @@
+import { motion, AnimatePresence } from 'framer-motion';
 import { EV, ROLE } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
+import { Card, Medallion } from '../components/ui';
 
 export function NightMafia() {
   const lobby = useGameStore((s) => s.lobby);
@@ -17,9 +19,9 @@ export function NightMafia() {
   if (self.isSpectator) {
     return (
       <div className="flex flex-col gap-4">
-        <PhaseHeader title="🌙 Night" endsAt={lobby.phaseEndsAt} />
+        <PhaseHeader title="Night" subtitle="The mafia stir" endsAt={lobby.phaseEndsAt} icon="🌙" />
         <SpectatorBanner round={lobby.round} />
-        <WaitingNote text="The mafia are choosing their target…" />
+        <Waiting text="The mafia are choosing their target…" />
       </div>
     );
   }
@@ -27,8 +29,13 @@ export function NightMafia() {
   if (!canAct) {
     return (
       <div className="flex flex-col gap-4">
-        <PhaseHeader title="🌙 Night falls" endsAt={lobby.phaseEndsAt} />
-        <WaitingNote text="The mafia are choosing their target…" />
+        <PhaseHeader
+          title="Night falls"
+          subtitle="Shadows move in the dark"
+          endsAt={lobby.phaseEndsAt}
+          icon="🌙"
+        />
+        <Waiting text="The mafia are choosing their target…" />
       </div>
     );
   }
@@ -49,48 +56,63 @@ export function NightMafia() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PhaseHeader title="🌙 Night — pick a target" endsAt={lobby.phaseEndsAt} />
-      <div className="text-xs text-red-400">Mafia: {mafiaNames}</div>
-      <ul className="divide-y divide-slate-800 rounded-lg bg-slate-900 border border-slate-800">
-        {targets.map((t) => {
-          const selected = myPick === t.id;
-          return (
-            <li key={t.id}>
-              <button
+      <PhaseHeader
+        title="Choose your prey"
+        subtitle={`With you: ${mafiaNames}`}
+        endsAt={lobby.phaseEndsAt}
+        icon="🗡"
+      />
+      <Card>
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+          {targets.map((t) => {
+            const selected = myPick === t.id;
+            const chosenBy = Object.entries(picks)
+              .filter(([, v]) => v === t.id)
+              .map(([k]) => lobby.players.find((p) => p.id === k)?.name)
+              .filter(Boolean);
+            return (
+              <motion.button
+                key={t.id}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => pick(t.id)}
-                className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800 ${
-                  selected ? 'bg-red-500/20' : ''
+                className={`flex flex-col items-center gap-2 p-2 rounded-lg transition ${
+                  selected
+                    ? 'bg-blood-500/20 ring-1 ring-blood-500/60 shadow-bloodglow'
+                    : 'hover:bg-night-700/40'
                 }`}
               >
-                <span>{t.name}</span>
-                {selected && <span className="text-xs text-red-400">your pick</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {Object.keys(picks).length > 0 && (
-        <div className="rounded-lg bg-slate-900 border border-slate-800 px-4 py-3 text-sm">
-          <div className="text-slate-400 text-xs mb-1">Picks so far</div>
-          {Object.entries(picks).map(([voter, target]) => {
-            const vn = lobby.players.find((p) => p.id === voter)?.name ?? '?';
-            const tn = lobby.players.find((p) => p.id === target)?.name ?? '?';
-            return (
-              <div key={voter} className="text-slate-300">
-                {vn} → <span className="text-red-400">{tn}</span>
-              </div>
+                <Medallion
+                  name={t.name}
+                  size="md"
+                  roleColor={selected ? '#c03838' : undefined}
+                />
+                <div className="text-xs text-parchment-200/90 truncate max-w-full">{t.name}</div>
+                <AnimatePresence>
+                  {chosenBy.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[10px] text-blood-500/80"
+                    >
+                      × {chosenBy.length}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
             );
           })}
         </div>
-      )}
+      </Card>
     </div>
   );
 }
 
-function WaitingNote({ text }: { text: string }) {
+function Waiting({ text }: { text: string }) {
   return (
-    <div className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-6 text-center text-slate-400">
-      {text}
-    </div>
+    <Card className="text-center py-10">
+      <div className="text-6xl mb-4 animate-slowfloat">🌙</div>
+      <div className="font-display italic text-parchment-200/70">{text}</div>
+    </Card>
   );
 }

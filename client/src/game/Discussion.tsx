@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { CHAT_MAX, EV } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
+import { Button, Card } from '../components/ui';
+import { Send } from 'lucide-react';
 
 export function Discussion() {
   const lobby = useGameStore((s) => s.lobby);
@@ -31,31 +34,51 @@ export function Discussion() {
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      <PhaseHeader title="💬 Discussion" endsAt={lobby.phaseEndsAt} />
+      <PhaseHeader
+        title="Discussion"
+        subtitle="Speak carefully. Someone is listening."
+        endsAt={lobby.phaseEndsAt}
+        icon="🏮"
+      />
       {self.isSpectator && <SpectatorBanner round={lobby.round} />}
       {lobby.pinnedDawnMessage && (
-        <div className="rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 text-sm text-slate-300">
-          📌 {lobby.pinnedDawnMessage}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="surface px-3 py-2 text-sm text-parchment-200/90 font-display italic flex gap-2 items-center"
+        >
+          <span>📜</span>
+          <span>{lobby.pinnedDawnMessage}</span>
+        </motion.div>
       )}
-      <div
-        ref={scrollRef}
-        className="flex-1 min-h-[200px] max-h-[50vh] overflow-y-auto rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 space-y-1 text-sm"
-      >
-        {chat.length === 0 && (
-          <div className="text-slate-500 text-center py-6">No messages yet.</div>
-        )}
-        {chat.map((m, i) => (
-          <div key={i}>
-            <span
-              className={`font-semibold ${m.from.id === pid ? 'text-red-400' : 'text-slate-200'}`}
-            >
-              {m.from.name}:
-            </span>{' '}
-            <span className="text-slate-300">{m.text}</span>
-          </div>
-        ))}
-      </div>
+      <Card className="!p-0 flex-1 min-h-[260px] max-h-[55vh] overflow-hidden flex flex-col">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
+          {chat.length === 0 && (
+            <div className="text-parchment-200/40 italic text-center py-10 font-display">
+              The room is still. No one has spoken yet.
+            </div>
+          )}
+          <AnimatePresence initial={false}>
+            {chat.map((m, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-2 items-start"
+              >
+                <span
+                  className={`font-serif font-semibold ${
+                    m.from.id === pid ? 'text-blood-500' : 'text-gold-400'
+                  }`}
+                >
+                  {m.from.name}:
+                </span>
+                <span className="text-parchment-100/90">{m.text}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </Card>
       {canChat ? (
         <div className="flex gap-2">
           <input
@@ -65,20 +88,16 @@ export function Discussion() {
               if (e.key === 'Enter') send();
             }}
             maxLength={CHAT_MAX}
-            placeholder="Type a message…"
-            className="flex-1 rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 outline-none focus:border-slate-500"
+            placeholder="Speak…"
+            className="flex-1 bg-night-900/70 border border-parchment-300/15 rounded-lg px-3 py-2.5 outline-none focus:border-gold-500/60 focus:shadow-glow transition font-display"
           />
-          <button
-            onClick={send}
-            disabled={!text.trim()}
-            className="rounded-lg bg-red-500 hover:bg-red-400 disabled:opacity-50 px-4 py-2 font-semibold"
-          >
+          <Button variant="primary" onClick={send} disabled={!text.trim()} icon={<Send size={14} />}>
             Send
-          </button>
+          </Button>
         </div>
       ) : (
-        <div className="rounded-lg bg-slate-800/60 border border-slate-700 px-3 py-2 text-xs text-slate-400 text-center">
-          You are a spectator. You can watch but not chat.
+        <div className="surface px-3 py-2 text-xs text-parchment-200/60 text-center italic">
+          You are a spectator. You can watch but not speak.
         </div>
       )}
     </div>
