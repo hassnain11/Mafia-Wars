@@ -11,6 +11,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mafia/shared": "*"
+    "@fastify/cors": "^9.0.1",
+    "@mafia/shared": "*",
+    "fastify": "^4.28.1",
+    "pino": "^9.3.2",
+    "socket.io": "^4.7.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "pino-pretty": "^11.2.2"
   }
 }
