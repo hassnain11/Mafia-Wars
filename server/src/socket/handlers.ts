@@ -29,6 +29,7 @@ import { LobbyManager } from '../lobby/LobbyManager.js';
 import type { Lobby } from '../lobby/Lobby.js';
 import { broadcastLobbyState, emitError } from './broadcast.js';
 import { GameEngine } from '../game/GameEngine.js';
+import { RateLimiter } from './rateLimiter.js';
 
 type Ack<T> = (
   res: { ok: true; data: T } | { ok: false; error: { code: ErrorCode; message: string } },
@@ -61,6 +62,7 @@ function parse<T>(schema: z.ZodType<T>, payload: unknown): T | null {
 
 export function registerHandlers(io: IOServer, manager: LobbyManager): void {
   const sockets = new Map<string, Socket>();
+  const limiter = new RateLimiter();
 
   const engine = new GameEngine(io, (_lobby, playerId) => {
     const p = _lobby.getPlayer(playerId);
@@ -68,11 +70,39 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
     return sid ? sockets.get(sid) : undefined;
   });
 
+  function on<Payload = unknown>(
+    socket: Socket,
+    event: string,
+    handler: (payload: Payload, ack?: unknown) => void,
+  ): void {
+    socket.on(event, (payload: Payload, ack: unknown) => {
+      if (!limiter.take(socket.id, event)) {
+        if (typeof ack === 'function') {
+          (ack as Ack<unknown>)(fail(ERROR_CODE.RATE_LIMITED));
+        } else {
+          emitError(socket, ERROR_CODE.RATE_LIMITED, errMsg.RATE_LIMITED);
+        }
+        return;
+      }
+      try {
+        handler(payload, ack);
+      } catch (err) {
+        logger.error({ err, event, socketId: socket.id }, 'handler threw');
+        if (typeof ack === 'function') {
+          (ack as Ack<unknown>)(fail(ERROR_CODE.INTERNAL_ERROR));
+        } else {
+          emitError(socket, ERROR_CODE.INTERNAL_ERROR, errMsg.INTERNAL_ERROR);
+        }
+      }
+    });
+  }
+
   io.on('connection', (socket) => {
     sockets.set(socket.id, socket);
     logger.info({ socketId: socket.id }, 'socket connected');
 
-    socket.on(EV.CREATE_LOBBY, (payload, ack: Ack<CreateLobbyAck>) => {
+    on(socket, EV.CREATE_LOBBY, (payload, ackRaw) => {
+      const ack = ackRaw as Ack<CreateLobbyAck>;
       const parsed = parse(CreateLobbySchema, payload);
       if (!parsed) return ack(fail(ERROR_CODE.NAME_INVALID));
 
@@ -90,7 +120,8 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       broadcastLobbyState(io, lobby);
     });
 
-    socket.on(EV.JOIN_LOBBY, (payload, ack: Ack<JoinLobbyAck>) => {
+    on(socket, EV.JOIN_LOBBY, (payload, ackRaw) => {
+      const ack = ackRaw as Ack<JoinLobbyAck>;
       const parsed = parse(JoinLobbySchema, payload);
       if (!parsed) return ack(fail(ERROR_CODE.NAME_INVALID));
 
@@ -114,7 +145,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       broadcastLobbyState(io, lobby);
     });
 
-    socket.on(EV.UPDATE_SETTINGS, (payload) => {
+    on(socket, EV.UPDATE_SETTINGS, (payload) => {
       const lobby = currentLobby(socket, manager);
       if (!lobby) return;
       const player = lobby.getPlayerBySocket(socket.id);
@@ -129,12 +160,12 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       broadcastLobbyState(io, lobby);
     });
 
-    socket.on(EV.LEAVE_LOBBY, (payload) => {
+    on(socket, EV.LEAVE_LOBBY, (payload) => {
       if (!parse(LeaveLobbySchema, payload ?? {})) return;
       handleLeave(socket, manager, io, 'leave');
     });
 
-    socket.on(EV.START_GAME, (payload) => {
+    on(socket, EV.START_GAME, (payload) => {
       if (!parse(StartGameSchema, payload ?? {})) return;
       const lobby = currentLobby(socket, manager);
       if (!lobby) return;
@@ -150,7 +181,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       engine.start(lobby);
     });
 
-    socket.on(EV.NIGHT_MAFIA_PICK, (payload) => {
+    on(socket, EV.NIGHT_MAFIA_PICK, (payload) => {
       const parsed = parse(NightMafiaPickSchema, payload);
       const lobby = currentLobby(socket, manager);
       if (!parsed || !lobby) return;
@@ -166,7 +197,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       engine.onMafiaPick(lobby, player.id, target.id);
     });
 
-    socket.on(EV.NIGHT_DOCTOR_PICK, (payload) => {
+    on(socket, EV.NIGHT_DOCTOR_PICK, (payload) => {
       const parsed = parse(NightDoctorPickSchema, payload);
       const lobby = currentLobby(socket, manager);
       if (!parsed || !lobby) return;
@@ -189,7 +220,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       engine.onDoctorPick(lobby, player.id, target.id);
     });
 
-    socket.on(EV.NIGHT_DETECTIVE_INVESTIGATE, (payload) => {
+    on(socket, EV.NIGHT_DETECTIVE_INVESTIGATE, (payload) => {
       const parsed = parse(NightDetectiveInvestigateSchema, payload);
       const lobby = currentLobby(socket, manager);
       if (!parsed || !lobby) return;
@@ -205,7 +236,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       engine.onDetectivePick(lobby, player.id, target.id);
     });
 
-    socket.on(EV.CHAT_SEND, (payload) => {
+    on(socket, EV.CHAT_SEND, (payload) => {
       const parsed = parse(ChatSendSchema, payload);
       const lobby = currentLobby(socket, manager);
       if (!parsed || !lobby) return;
@@ -217,7 +248,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       engine.onChatSend(lobby, player, parsed.text);
     });
 
-    socket.on(EV.CAST_VOTE, (payload) => {
+    on(socket, EV.CAST_VOTE, (payload) => {
       const parsed = parse(CastVoteSchema, payload);
       const lobby = currentLobby(socket, manager);
       if (!parsed || !lobby) return;
@@ -244,7 +275,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       engine.onCastVote(lobby, player.id, target);
     });
 
-    socket.on(EV.RETURN_TO_LOBBY, (payload) => {
+    on(socket, EV.RETURN_TO_LOBBY, (payload) => {
       if (!parse(ReturnToLobbySchema, payload ?? {})) return;
       const lobby = currentLobby(socket, manager);
       if (!lobby) return;
@@ -255,7 +286,8 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       engine.returnToLobby(lobby);
     });
 
-    socket.on(EV.RECONNECT, (payload, ack: Ack<{ reattached: true }>) => {
+    on(socket, EV.RECONNECT, (payload, ackRaw) => {
+      const ack = ackRaw as Ack<{ reattached: true }>;
       const parsed = parse(ReconnectSchema, payload);
       if (!parsed) return ack(fail(ERROR_CODE.RECONNECT_EXPIRED));
       const lobby = manager.get(parsed.code);
@@ -267,9 +299,13 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
         !player.connected &&
         player.disconnectAt !== null &&
         Date.now() - player.disconnectAt <= RECONNECT_GRACE_MS;
-      const allowedInLobby = lobby.phase === PHASE.LOBBY;
+      const allowedInLobby =
+        lobby.phase === PHASE.LOBBY &&
+        (player.connected ||
+          (player.disconnectAt !== null &&
+            Date.now() - player.disconnectAt <= PRE_GAME_GRACE_MS));
 
-      if (!withinGrace && !allowedInLobby && player.connected === false) {
+      if (!player.connected && !withinGrace && !allowedInLobby) {
         return ack(fail(ERROR_CODE.RECONNECT_EXPIRED));
       }
 
@@ -285,6 +321,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
 
     socket.on('disconnect', (reason) => {
       sockets.delete(socket.id);
+      limiter.drop(socket.id);
       logger.info({ socketId: socket.id, reason }, 'socket disconnected');
       handleLeave(socket, manager, io, 'disconnect');
     });
@@ -296,6 +333,8 @@ function currentLobby(socket: Socket, manager: LobbyManager): Lobby | undefined 
   if (!code) return undefined;
   return manager.get(code);
 }
+
+const PRE_GAME_GRACE_MS = 10_000;
 
 function handleLeave(
   socket: Socket,
@@ -309,15 +348,12 @@ function handleLeave(
   if (!player) return;
 
   socket.leave(lobby.code);
+  socket.data.lobbyCode = undefined;
+  socket.data.playerId = undefined;
 
-  if (lobby.phase === PHASE.LOBBY || reason === 'leave') {
+  if (reason === 'leave') {
     const removed = lobby.removePlayer(player.id);
-    logger.info(
-      { code: lobby.code, playerId: removed?.id, reason },
-      'player removed from lobby',
-    );
-    socket.data.lobbyCode = undefined;
-    socket.data.playerId = undefined;
+    logger.info({ code: lobby.code, playerId: removed?.id, reason }, 'player left');
     if (lobby.isEmpty()) {
       manager.remove(lobby.code);
       return;
@@ -327,9 +363,29 @@ function handleLeave(
     return;
   }
 
+  // Disconnect: keep the slot. In LOBBY, give a short grace to survive a
+  // refresh; in-game grace is RECONNECT_GRACE_MS (handled by reconnect check).
   player.connected = false;
   player.disconnectAt = Date.now();
   player.socketId = null;
   if (player.isHost) lobby.promoteNewHost();
   broadcastLobbyState(io, lobby);
+
+  if (lobby.phase === PHASE.LOBBY) {
+    setTimeout(() => {
+      const stillHere = lobby.getPlayer(player.id);
+      if (!stillHere || stillHere.connected) return;
+      lobby.removePlayer(stillHere.id);
+      logger.info(
+        { code: lobby.code, playerId: stillHere.id },
+        'player removed after pre-game grace',
+      );
+      if (lobby.isEmpty()) {
+        manager.remove(lobby.code);
+        return;
+      }
+      lobby.clampSettings();
+      broadcastLobbyState(io, lobby);
+    }, PRE_GAME_GRACE_MS);
+  }
 }

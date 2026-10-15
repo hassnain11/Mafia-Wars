@@ -19,7 +19,7 @@ import {
 import { logger } from '../util/logger.js';
 import { startTimer } from '../util/timer.js';
 import type { Lobby, InternalPlayer } from '../lobby/Lobby.js';
-import { anyLiving, assignRoles } from './roles.js';
+import { anyLiving, anyLivingConnected, assignRoles } from './roles.js';
 import { checkWin } from './winConditions.js';
 import { broadcastLobbyState } from '../socket/broadcast.js';
 
@@ -151,10 +151,13 @@ export class GameEngine {
     if (lobby.phase !== PHASE.NIGHT_MAFIA) return;
     lobby.nightActions.mafiaPicks.set(mafiaId, targetId);
     this.broadcastMafiaPicks(lobby);
-    const mafiaAlive = lobby.players.filter((p) => p.alive && p.role === ROLE.MAFIA);
+    // Disconnected mafia don't block consensus (GAME_SPEC §6).
+    const mafiaActive = lobby.players.filter(
+      (p) => p.alive && p.connected && p.role === ROLE.MAFIA,
+    );
     const everyoneAgreed =
-      mafiaAlive.length > 0 &&
-      mafiaAlive.every((m) => lobby.nightActions.mafiaPicks.get(m.id) === targetId);
+      mafiaActive.length > 0 &&
+      mafiaActive.every((m) => lobby.nightActions.mafiaPicks.get(m.id) === targetId);
     if (everyoneAgreed) {
       this.finalizeMafiaPick(lobby);
       this.enterNightDoctor(lobby);
@@ -175,14 +178,22 @@ export class GameEngine {
   }
 
   private enterNightDoctor(lobby: Lobby): void {
-    if (!anyLiving(lobby.players, ROLE.DOCTOR) || !lobby.settings.doctorEnabled) {
+    if (
+      !lobby.settings.doctorEnabled ||
+      !anyLiving(lobby.players, ROLE.DOCTOR) ||
+      !anyLivingConnected(lobby.players, ROLE.DOCTOR)
+    ) {
       return this.enterNightDetective(lobby);
     }
     this.enter(lobby, PHASE.NIGHT_DOCTOR);
   }
 
   private enterNightDetective(lobby: Lobby): void {
-    if (!anyLiving(lobby.players, ROLE.DETECTIVE) || !lobby.settings.detectiveEnabled) {
+    if (
+      !lobby.settings.detectiveEnabled ||
+      !anyLiving(lobby.players, ROLE.DETECTIVE) ||
+      !anyLivingConnected(lobby.players, ROLE.DETECTIVE)
+    ) {
       return this.enter(lobby, PHASE.DAWN);
     }
     this.enter(lobby, PHASE.NIGHT_DETECTIVE);

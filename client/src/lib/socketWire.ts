@@ -7,8 +7,8 @@ import {
   type SelfView,
   type ToastPayload,
 } from '@mafia/shared';
-import { socket, connectSocket } from '../socket';
-import { useGameStore } from '../store/gameStore';
+import { socket, connectSocket, emitAck } from '../socket';
+import { clearPersistedSession, loadPersisted, useGameStore } from '../store/gameStore';
 
 let bound = false;
 
@@ -52,6 +52,22 @@ export function initSocket(): void {
 
   socket.on(EV.TOAST, (t: ToastPayload) => {
     toastHandler(t);
+  });
+
+  socket.on('connect', async () => {
+    const { playerId, code } = loadPersisted();
+    if (!playerId || !code) return;
+    try {
+      await emitAck<{ reattached: true }>(EV.RECONNECT, { playerId, code }, 3000);
+      useGameStore.setState({ playerId });
+    } catch (e) {
+      const err = e as { code?: string; message?: string };
+      if (err?.code === 'RECONNECT_EXPIRED' || err?.code === 'LOBBY_NOT_FOUND') {
+        clearPersistedSession();
+        useGameStore.getState().resetGame();
+        toastHandler({ text: 'Your session expired.', level: 'warn' });
+      }
+    }
   });
 
   useGameStore.setState({ connection: 'connecting' });

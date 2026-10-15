@@ -31,3 +31,7 @@ export function livingByRole(players: InternalPlayer[], role: Role): InternalPla
 export function anyLiving(players: InternalPlayer[], role: Role): boolean {
   return players.some((p) => p.alive && p.role === role);
 }
+
+export function anyLivingConnected(players: InternalPlayer[], role: Role): boolean {
+  return players.some((p) => p.alive && p.connected && p.role === role);
+}
