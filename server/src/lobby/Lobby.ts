@@ -18,6 +18,12 @@ export interface InternalPlayer extends PublicPlayer {
   joinedAt: number;
 }
 
+export interface NightActions {
+  mafiaPicks: Map<string, string>;
+  doctorSave: string | null;
+  detectiveInvestigate: string | null;
+}
+
 export class Lobby {
   readonly code: string;
   phase: Phase = PHASE.LOBBY;
@@ -26,12 +32,44 @@ export class Lobby {
   round = 0;
   phaseEndsAt: number | null = null;
   pinnedDawnMessage: string | null = null;
-  phaseTimerId: NodeJS.Timeout | null = null;
+  phaseTimerCancel: (() => void) | null = null;
   createdAt: number;
+
+  nightActions: NightActions = { mafiaPicks: new Map(), doctorSave: null, detectiveInvestigate: null };
+  votes = new Map<string, string | 'skip'>();
+  tiebreakCandidates: string[] = [];
+  lastDoctorSelfSaveRound: number | null = null;
+  savedThisRound = false;
+  lastDeadPlayerId: string | null = null;
 
   constructor(code: string) {
     this.code = code;
     this.createdAt = Date.now();
+  }
+
+  resetForNewGame(): void {
+    this.round = 0;
+    this.pinnedDawnMessage = null;
+    this.nightActions = { mafiaPicks: new Map(), doctorSave: null, detectiveInvestigate: null };
+    this.votes.clear();
+    this.tiebreakCandidates = [];
+    this.lastDoctorSelfSaveRound = null;
+    this.savedThisRound = false;
+    this.lastDeadPlayerId = null;
+    for (const p of this.players) {
+      p.role = null;
+      p.alive = true;
+    }
+  }
+
+  resetNightActions(): void {
+    this.nightActions = { mafiaPicks: new Map(), doctorSave: null, detectiveInvestigate: null };
+    this.savedThisRound = false;
+    this.lastDeadPlayerId = null;
+  }
+
+  resetVotes(): void {
+    this.votes.clear();
   }
 
   addPlayer(name: string, isHost: boolean, socketId: string): InternalPlayer {
@@ -106,7 +144,7 @@ export class Lobby {
   }
 
   toPublic(): LobbyPublicState {
-    return {
+    const state: LobbyPublicState = {
       code: this.code,
       phase: this.phase,
       settings: this.settings,
@@ -121,5 +159,12 @@ export class Lobby {
       phaseEndsAt: this.phaseEndsAt,
       pinnedDawnMessage: this.pinnedDawnMessage,
     };
+    if (this.phase === PHASE.VOTING || this.phase === PHASE.VOTE_TIEBREAK) {
+      state.liveVotes = Object.fromEntries(this.votes.entries());
+    }
+    if (this.phase === PHASE.VOTE_TIEBREAK) {
+      state.tiebreakCandidates = this.tiebreakCandidates;
+    }
+    return state;
   }
 }

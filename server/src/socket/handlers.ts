@@ -1,6 +1,8 @@
 import type { Server as IOServer, Socket } from 'socket.io';
 import { z } from 'zod';
 import {
+  CastVoteSchema,
+  ChatSendSchema,
   CreateLobbySchema,
   ERROR_CODE,
   EV,
@@ -8,23 +10,29 @@ import {
   LeaveLobbySchema,
   MAX_PLAYERS,
   MIN_PLAYERS,
+  NightDetectiveInvestigateSchema,
+  NightDoctorPickSchema,
+  NightMafiaPickSchema,
   PHASE,
   ReconnectSchema,
-  ROLE_REVEAL_SECONDS,
   RECONNECT_GRACE_MS,
+  ReturnToLobbySchema,
+  ROLE,
   StartGameSchema,
   UpdateSettingsSchema,
   type CreateLobbyAck,
   type ErrorCode,
   type JoinLobbyAck,
-  type PhaseChangedPayload,
 } from '@mafia/shared';
 import { logger } from '../util/logger.js';
 import { LobbyManager } from '../lobby/LobbyManager.js';
 import type { Lobby } from '../lobby/Lobby.js';
 import { broadcastLobbyState, emitError } from './broadcast.js';
+import { GameEngine } from '../game/GameEngine.js';
 
-type Ack<T> = (res: { ok: true; data: T } | { ok: false; error: { code: ErrorCode; message: string } }) => void;
+type Ack<T> = (
+  res: { ok: true; data: T } | { ok: false; error: { code: ErrorCode; message: string } },
+) => void;
 
 const errMsg: Record<ErrorCode, string> = {
   NAME_INVALID: 'Name is invalid.',
@@ -52,7 +60,16 @@ function parse<T>(schema: z.ZodType<T>, payload: unknown): T | null {
 }
 
 export function registerHandlers(io: IOServer, manager: LobbyManager): void {
+  const sockets = new Map<string, Socket>();
+
+  const engine = new GameEngine(io, (_lobby, playerId) => {
+    const p = _lobby.getPlayer(playerId);
+    const sid = p?.socketId;
+    return sid ? sockets.get(sid) : undefined;
+  });
+
   io.on('connection', (socket) => {
+    sockets.set(socket.id, socket);
     logger.info({ socketId: socket.id }, 'socket connected');
 
     socket.on(EV.CREATE_LOBBY, (payload, ack: Ack<CreateLobbyAck>) => {
@@ -65,7 +82,10 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       socket.data.lobbyCode = lobby.code;
       socket.data.playerId = player.id;
 
-      logger.info({ code: lobby.code, playerId: player.id, name: player.name }, 'lobby created');
+      logger.info(
+        { code: lobby.code, playerId: player.id, name: player.name },
+        'lobby created',
+      );
       ack({ ok: true, data: { code: lobby.code, playerId: player.id } });
       broadcastLobbyState(io, lobby);
     });
@@ -86,7 +106,10 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       socket.data.playerId = player.id;
       lobby.clampSettings();
 
-      logger.info({ code: lobby.code, playerId: player.id, name: player.name }, 'player joined');
+      logger.info(
+        { code: lobby.code, playerId: player.id, name: player.name },
+        'player joined',
+      );
       ack({ ok: true, data: { playerId: player.id } });
       broadcastLobbyState(io, lobby);
     });
@@ -100,7 +123,6 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       if (lobby.phase !== PHASE.LOBBY) {
         return emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
       }
-
       const parsed = parse(UpdateSettingsSchema, payload);
       if (!parsed) return emitError(socket, ERROR_CODE.INVALID_SETTINGS, errMsg.INVALID_SETTINGS);
       lobby.mergeSettings(parsed);
@@ -124,33 +146,113 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       if (lobby.players.length < MIN_PLAYERS) {
         return emitError(socket, ERROR_CODE.NOT_ENOUGH_PLAYERS, errMsg.NOT_ENOUGH_PLAYERS);
       }
+      lobby.clampSettings();
+      engine.start(lobby);
+    });
 
-      // Phase 3 placeholder: flip to ROLE_REVEAL for 1s, then back to LOBBY.
-      // Phase 5 will replace this with the real engine.
-      lobby.phase = PHASE.ROLE_REVEAL;
-      lobby.round = 1;
-      lobby.phaseEndsAt = Date.now() + ROLE_REVEAL_SECONDS * 1000;
-      broadcastLobbyState(io, lobby);
-      const phaseEvt: PhaseChangedPayload = {
-        phase: lobby.phase,
-        phaseEndsAt: lobby.phaseEndsAt,
-        round: lobby.round,
-      };
-      io.to(lobby.code).emit(EV.PHASE_CHANGED, phaseEvt);
+    socket.on(EV.NIGHT_MAFIA_PICK, (payload) => {
+      const parsed = parse(NightMafiaPickSchema, payload);
+      const lobby = currentLobby(socket, manager);
+      if (!parsed || !lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player) return;
+      if (lobby.phase !== PHASE.NIGHT_MAFIA)
+        return emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
+      if (!player.alive || player.role !== ROLE.MAFIA)
+        return emitError(socket, ERROR_CODE.NOT_YOUR_TURN, errMsg.NOT_YOUR_TURN);
+      const target = lobby.getPlayer(parsed.targetId);
+      if (!target || !target.alive || target.role === ROLE.MAFIA)
+        return emitError(socket, ERROR_CODE.INVALID_TARGET, errMsg.INVALID_TARGET);
+      engine.onMafiaPick(lobby, player.id, target.id);
+    });
 
-      if (lobby.phaseTimerId) clearTimeout(lobby.phaseTimerId);
-      lobby.phaseTimerId = setTimeout(() => {
-        lobby.phase = PHASE.LOBBY;
-        lobby.round = 0;
-        lobby.phaseEndsAt = null;
-        lobby.phaseTimerId = null;
-        broadcastLobbyState(io, lobby);
-        io.to(lobby.code).emit(EV.PHASE_CHANGED, {
-          phase: lobby.phase,
-          phaseEndsAt: null,
-          round: 0,
-        } satisfies PhaseChangedPayload);
-      }, 1000);
+    socket.on(EV.NIGHT_DOCTOR_PICK, (payload) => {
+      const parsed = parse(NightDoctorPickSchema, payload);
+      const lobby = currentLobby(socket, manager);
+      if (!parsed || !lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player) return;
+      if (lobby.phase !== PHASE.NIGHT_DOCTOR)
+        return emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
+      if (!player.alive || player.role !== ROLE.DOCTOR)
+        return emitError(socket, ERROR_CODE.NOT_YOUR_TURN, errMsg.NOT_YOUR_TURN);
+      const target = lobby.getPlayer(parsed.targetId);
+      if (!target || !target.alive)
+        return emitError(socket, ERROR_CODE.INVALID_TARGET, errMsg.INVALID_TARGET);
+      if (
+        target.id === player.id &&
+        lobby.lastDoctorSelfSaveRound !== null &&
+        lobby.lastDoctorSelfSaveRound === lobby.round - 1
+      ) {
+        return emitError(socket, ERROR_CODE.SELF_SAVE_LOCKED, errMsg.SELF_SAVE_LOCKED);
+      }
+      engine.onDoctorPick(lobby, player.id, target.id);
+    });
+
+    socket.on(EV.NIGHT_DETECTIVE_INVESTIGATE, (payload) => {
+      const parsed = parse(NightDetectiveInvestigateSchema, payload);
+      const lobby = currentLobby(socket, manager);
+      if (!parsed || !lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player) return;
+      if (lobby.phase !== PHASE.NIGHT_DETECTIVE)
+        return emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
+      if (!player.alive || player.role !== ROLE.DETECTIVE)
+        return emitError(socket, ERROR_CODE.NOT_YOUR_TURN, errMsg.NOT_YOUR_TURN);
+      const target = lobby.getPlayer(parsed.targetId);
+      if (!target || !target.alive || target.id === player.id)
+        return emitError(socket, ERROR_CODE.INVALID_TARGET, errMsg.INVALID_TARGET);
+      engine.onDetectivePick(lobby, player.id, target.id);
+    });
+
+    socket.on(EV.CHAT_SEND, (payload) => {
+      const parsed = parse(ChatSendSchema, payload);
+      const lobby = currentLobby(socket, manager);
+      if (!parsed || !lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player) return;
+      if (lobby.phase !== PHASE.DISCUSSION)
+        return emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
+      if (!player.alive) return;
+      engine.onChatSend(lobby, player, parsed.text);
+    });
+
+    socket.on(EV.CAST_VOTE, (payload) => {
+      const parsed = parse(CastVoteSchema, payload);
+      const lobby = currentLobby(socket, manager);
+      if (!parsed || !lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player) return;
+      if (lobby.phase !== PHASE.VOTING && lobby.phase !== PHASE.VOTE_TIEBREAK)
+        return emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
+      if (!player.alive)
+        return emitError(socket, ERROR_CODE.NOT_YOUR_TURN, errMsg.NOT_YOUR_TURN);
+      const target = parsed.targetId;
+      if (target !== 'skip') {
+        const tp = lobby.getPlayer(target);
+        if (!tp || !tp.alive || tp.id === player.id)
+          return emitError(socket, ERROR_CODE.INVALID_TARGET, errMsg.INVALID_TARGET);
+        if (
+          lobby.phase === PHASE.VOTE_TIEBREAK &&
+          !lobby.tiebreakCandidates.includes(target)
+        ) {
+          return emitError(socket, ERROR_CODE.INVALID_TARGET, errMsg.INVALID_TARGET);
+        }
+      } else if (lobby.phase === PHASE.VOTE_TIEBREAK) {
+        return emitError(socket, ERROR_CODE.INVALID_TARGET, errMsg.INVALID_TARGET);
+      }
+      engine.onCastVote(lobby, player.id, target);
+    });
+
+    socket.on(EV.RETURN_TO_LOBBY, (payload) => {
+      if (!parse(ReturnToLobbySchema, payload ?? {})) return;
+      const lobby = currentLobby(socket, manager);
+      if (!lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player?.isHost) return emitError(socket, ERROR_CODE.NOT_HOST, errMsg.NOT_HOST);
+      if (lobby.phase !== PHASE.ENDED)
+        return emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
+      engine.returnToLobby(lobby);
     });
 
     socket.on(EV.RECONNECT, (payload, ack: Ack<{ reattached: true }>) => {
@@ -182,6 +284,7 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
     });
 
     socket.on('disconnect', (reason) => {
+      sockets.delete(socket.id);
       logger.info({ socketId: socket.id, reason }, 'socket disconnected');
       handleLeave(socket, manager, io, 'disconnect');
     });
@@ -224,7 +327,6 @@ function handleLeave(
     return;
   }
 
-  // Mid-game disconnect: keep slot, start grace timer.
   player.connected = false;
   player.disconnectAt = Date.now();
   player.socketId = null;
