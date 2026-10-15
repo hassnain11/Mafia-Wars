@@ -2,7 +2,7 @@
 # Primary region: fra (Frankfurt) — low latency for Pakistan/EU/MENA.
 # Change `primary_region` to one closer if your players are elsewhere.
 
-app = "mafia-wars"
+app = "mafia-wars-hassnain"
 primary_region = "fra"
 
 [build]
