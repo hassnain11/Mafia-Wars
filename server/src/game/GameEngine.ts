@@ -129,7 +129,11 @@ export class GameEngine {
       case PHASE.DAWN: {
         const won = checkWin(lobby.players);
         if (won) return this.endGame(lobby, won.winner, won.reason);
-        this.enter(lobby, PHASE.DISCUSSION);
+        if (this.shouldSkipDiscussion(lobby)) {
+          this.enter(lobby, PHASE.VOTING);
+        } else {
+          this.enter(lobby, PHASE.DISCUSSION);
+        }
         break;
       }
       case PHASE.DISCUSSION:
@@ -269,10 +273,17 @@ export class GameEngine {
     }
     lobby.pinnedDawnMessage = text;
 
+    const deadName = deadId ? (lobby.players.find((p) => p.id === deadId)?.name ?? null) : null;
+    const doctorPresent =
+      lobby.settings.doctorEnabled && lobby.players.some((p) => p.role === ROLE.DOCTOR);
     const announce: DawnAnnouncePayload = {
       text,
       deadPlayerId: deadId,
+      deadPlayerName: deadName,
       round: lobby.round,
+      savedThisRound: lobby.savedThisRound,
+      doctorPresent,
+      mafiaAttempted: kill !== null,
     };
     this.io.to(lobby.code).emit(EV.DAWN_ANNOUNCE, announce);
   }
@@ -454,6 +465,11 @@ export class GameEngine {
         .map((o) => o.id);
     }
     return view;
+  }
+
+  private shouldSkipDiscussion(lobby: Lobby): boolean {
+    const livingHumans = lobby.players.filter((p) => p.alive && !p.isBot).length;
+    return livingHumans <= 1;
   }
 
   private canAct(lobby: Lobby, p: InternalPlayer): boolean {

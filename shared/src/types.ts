@@ -84,7 +84,11 @@ export interface ChatMessage {
 export interface DawnAnnouncePayload {
   text: string;
   deadPlayerId: string | null;
+  deadPlayerName: string | null;
   round: number;
+  savedThisRound: boolean;
+  doctorPresent: boolean;
+  mafiaAttempted: boolean;
 }
 
 export interface DetectiveResultPayload {

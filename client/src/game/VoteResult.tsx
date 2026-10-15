@@ -1,21 +1,11 @@
-import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { EV } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
-import { socket } from '../socket';
 import { Countdown } from '../components/Countdown';
 
 export function VoteResult() {
   const lobby = useGameStore((s) => s.lobby);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handler = (p: { text: string }) => setMsg(p.text);
-    socket.on(EV.VOTE_RESULT, handler);
-    return () => {
-      socket.off(EV.VOTE_RESULT, handler);
-    };
-  }, []);
+  const result = useGameStore((s) => s.lastVoteResult);
+  const msg = result?.text ?? null;
 
   if (!lobby) return null;
 

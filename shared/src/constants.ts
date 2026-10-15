@@ -15,10 +15,15 @@ export const CHAT_MAX = 280;
 export const RECONNECT_GRACE_MS = 60_000;
 
 // Fixed timings (seconds) — not host-configurable.
-export const ROLE_REVEAL_SECONDS = 5;
-export const DAWN_SECONDS = 5;
-export const VOTE_RESULT_SECONDS = 5;
+export const ROLE_REVEAL_SECONDS = 6;
+export const DAWN_SECONDS = 14;
+export const VOTE_RESULT_SECONDS = 6;
 export const VOTE_TIEBREAK_SECONDS = 20;
+
+// Cutscene step durations (ms) within DAWN — must sum ≤ DAWN_SECONDS*1000.
+export const CUTSCENE_MAFIA_MS = 4500;
+export const CUTSCENE_DOCTOR_MS = 4000;
+export const CUTSCENE_DETECTIVE_MS = 4000;
 
 // Host-configurable timings — ranges, step, defaults.
 export const DISCUSSION_SECONDS_MIN = 30;

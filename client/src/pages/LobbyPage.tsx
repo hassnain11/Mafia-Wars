@@ -18,6 +18,7 @@ import { clearPersistedSession, useGameStore } from '../store/gameStore';
 import { pushToast } from '../components/Toast';
 import { Button, Card, Chip, SectionTitle } from '../components/ui';
 import { Medallion } from '../components/ui';
+import { Candle } from '../cutscenes/figures';
 import { Copy, LogOut, Play } from 'lucide-react';
 
 export function LobbyPage() {
@@ -67,7 +68,13 @@ export function LobbyPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <Card gold className="text-center">
+        <Card gold className="text-center relative overflow-hidden">
+          <div className="absolute left-3 bottom-0 opacity-80">
+            <Candle size={32} />
+          </div>
+          <div className="absolute right-3 bottom-0 opacity-80">
+            <Candle size={32} />
+          </div>
           <div className="text-xs uppercase tracking-[0.3em] text-parchment-200/60 mb-2">
             Lobby code
           </div>

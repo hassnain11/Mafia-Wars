@@ -13,6 +13,7 @@ import { persistSession, useGameStore } from '../store/gameStore';
 import { pushToast } from '../components/Toast';
 import { Button, Card, Chip } from '../components/ui';
 import { Bot, Zap, Users, UserPlus, ArrowLeft, X } from 'lucide-react';
+import { LogoMark } from '../assets/Logo';
 
 type Mode = 'menu' | 'join' | 'queue';
 
@@ -141,11 +142,14 @@ export function HomePage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="text-center space-y-2 pt-6"
+        className="text-center space-y-3 pt-4"
       >
-        <Chip>Social Deduction</Chip>
+        <div className="inline-block">
+          <LogoMark size={72} />
+        </div>
+        <Chip>A Social Deduction Game</Chip>
         <h1 className="font-serif text-5xl font-bold tracking-wide">
-          <span className="text-blood-500 drop-shadow-[0_0_12px_rgba(192,56,56,0.4)]">Mafia</span>{' '}
+          <span className="text-blood-500 drop-shadow-[0_0_14px_rgba(192,56,56,0.5)]">Mafia</span>{' '}
           <span className="text-parchment-100">Wars</span>
         </h1>
         <p className="font-display italic text-parchment-200/80 text-lg">
