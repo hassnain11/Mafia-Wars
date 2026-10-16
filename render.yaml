@@ -1,0 +1,23 @@
+# Render.com blueprint — one-click deploy of the Mafia Wars server.
+# Import this file from the Render dashboard: New → Blueprint → connect this repo.
+
+services:
+  - type: web
+    name: mafia-wars-server
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: info
+      # CLIENT_ORIGIN will be set manually in the dashboard once the
+      # Cloudflare Pages URL is known. (Already known: see README.)
+      - key: CLIENT_ORIGIN
+        value: https://mafia-wars.hassnaingill012.workers.dev

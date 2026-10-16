@@ -24,11 +24,11 @@ WORKDIR /app
 # Copy only the bundled output (self-contained, no node_modules needed)
 COPY --from=build /app/server/dist/bundle.mjs ./bundle.mjs
 
-ENV PORT=8080
-ENV HOST=0.0.0.0
+# PORT and HOST are supplied by the platform (Render sets PORT, Fly uses 8080).
+# EXPOSE is a hint only — not required by Render.
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "bundle.mjs"]
