@@ -1,3 +1,15 @@
+---
+title: Mafia Wars
+emoji: 🗡
+colorFrom: red
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Real-time Mafia / Among Us social-deduction party game.
+---
+
 # Mafia Wars
 
 A real-time, browser-based social deduction game inspired by classic Mafia / Among Us.
