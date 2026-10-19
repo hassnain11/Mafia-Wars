@@ -7,9 +7,9 @@ import {
   ROLE,
 } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
-import { MafiaStrike } from '../cutscenes/MafiaStrike';
-import { DoctorResult } from '../cutscenes/DoctorResult';
-import { DetectiveReveal } from '../cutscenes/DetectiveReveal';
+import { MafiaStrike3D as MafiaStrike } from '../cutscenes/MafiaStrike3D';
+import { DoctorResult3D as DoctorResult } from '../cutscenes/DoctorResult3D';
+import { DetectiveReveal3D as DetectiveReveal } from '../cutscenes/DetectiveReveal3D';
 import { play } from '../audio/sfx';
 
 type Stage = 'mafia' | 'doctor' | 'detective' | 'summary';

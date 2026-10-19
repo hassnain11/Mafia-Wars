@@ -2,7 +2,10 @@ import { motion } from 'framer-motion';
 import { ROLE } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
 import { Countdown } from '../components/Countdown';
-import { RoleSeal, ROLE_META } from '../components/RoleSeal';
+import { ROLE_META } from '../components/RoleSeal';
+import { Scene } from '../three/Scene';
+import { MoonLight } from '../three/figures3d';
+import { RoleSeal3D } from '../three/RoleSeal3D';
 
 export function RoleReveal() {
   const self = useGameStore((s) => s.self);
@@ -18,7 +21,7 @@ export function RoleReveal() {
     .join(', ');
 
   return (
-    <div className="flex flex-col items-center justify-center text-center py-12 gap-6">
+    <div className="flex flex-col items-center justify-center text-center py-6 gap-4">
       <motion.div
         initial={{ opacity: 0, letterSpacing: '0.5em' }}
         animate={{ opacity: 1, letterSpacing: '0.3em' }}
@@ -29,11 +32,17 @@ export function RoleReveal() {
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.6, rotate: -30 }}
-        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.1 }}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2, duration: 0.6 }}
+        className="w-full"
       >
-        {role && <RoleSeal role={role} size={180} />}
+        {role && (
+          <Scene height={320} camera={{ position: [0, 0, 4], fov: 42 }}>
+            <MoonLight />
+            <RoleSeal3D role={role} />
+          </Scene>
+        )}
       </motion.div>
 
       <motion.div
