@@ -6,23 +6,23 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { CharacterSprite } from './CharacterSprite';
-import { buildRevealedRoles, displayRoleFor } from '../lib/roleView';
+import { displayRoleFor } from '../lib/roleView';
 
 export function PlayerRoster() {
   const lobby = useGameStore((s) => s.lobby);
   const self = useGameStore((s) => s.self);
   const pid = useGameStore((s) => s.playerId);
-  const ended = useGameStore((s) => s.lastGameEnded);
   if (!lobby) return null;
-
-  const revealed = ended ? buildRevealedRoles(ended.fullReveal) : null;
 
   return (
     <div className="w-full mt-5 pt-3 border-t border-parchment-300/10">
       <div className="flex flex-wrap items-start justify-center gap-x-3 gap-y-2">
         <AnimatePresence>
           {lobby.players.map((p) => {
-            const shownRole = displayRoleFor(self, p.id, revealed);
+            // Never pass revealed roles here — the roster must always show
+            // Civilian (per user's rule), except for your own slot and mafia
+            // teammates. The dedicated end-game screen does the full reveal.
+            const shownRole = displayRoleFor(self, p.id);
             const isMe = p.id === pid;
             return (
               <motion.div
