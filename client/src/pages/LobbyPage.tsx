@@ -17,13 +17,15 @@ import { socket } from '../socket';
 import { clearPersistedSession, useGameStore } from '../store/gameStore';
 import { pushToast } from '../components/Toast';
 import { Button, Card, Chip, SectionTitle } from '../components/ui';
-import { Medallion } from '../components/ui';
+import { CharacterSprite } from '../components/CharacterSprite';
+import { displayRoleFor } from '../lib/roleView';
 import { Candle } from '../cutscenes/figures';
-import { Copy, LogOut, Play } from 'lucide-react';
+import { Bot, Copy, Crown, LogOut, Play } from 'lucide-react';
 
 export function LobbyPage() {
   const { code } = useParams();
   const lobby = useGameStore((s) => s.lobby);
+  const self = useGameStore((s) => s.self);
   const playerId = useGameStore((s) => s.playerId);
   const resetGame = useGameStore((s) => s.resetGame);
   const nav = useNavigate();
@@ -102,34 +104,49 @@ export function LobbyPage() {
             </Chip>
           )}
         </div>
-        <ul className="grid grid-cols-4 sm:grid-cols-5 gap-4 pt-3">
+        <ul className="grid grid-cols-3 sm:grid-cols-5 gap-3 pt-3">
           <AnimatePresence>
-            {lobby.players.map((p) => (
-              <motion.li
-                key={p.id}
-                layout
-                initial={{ opacity: 0, scale: 0.7 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.7 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-                className="flex flex-col items-center gap-2"
-              >
-                <Medallion
-                  name={p.name}
-                  size="md"
-                  connected={p.connected}
-                  isHost={p.isHost}
-                  isBot={p.isBot}
-                />
-                <div
-                  className={`text-xs text-center max-w-full truncate ${
-                    p.id === playerId ? 'text-parchment-100 font-semibold' : 'text-parchment-200/80'
-                  }`}
+            {lobby.players.map((p) => {
+              const shownRole = displayRoleFor(self, p.id);
+              return (
+                <motion.li
+                  key={p.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.7 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+                  className="relative flex flex-col items-center gap-1"
                 >
-                  {p.name}
-                </div>
-              </motion.li>
-            ))}
+                  <div className="relative">
+                    <CharacterSprite role={shownRole} size="md" alive={p.alive} />
+                    <span
+                      className={`absolute right-1 bottom-1 h-2.5 w-2.5 rounded-full ring-2 ring-night-950 ${
+                        p.connected ? 'bg-emerald-400' : 'bg-slate-500'
+                      }`}
+                    />
+                    {p.isHost && (
+                      <Crown
+                        size={14}
+                        className="absolute -top-1 right-0 text-amber-300 drop-shadow"
+                      />
+                    )}
+                    {p.isBot && (
+                      <Bot size={12} className="absolute -top-1 left-0 text-parchment-200/70" />
+                    )}
+                  </div>
+                  <div
+                    className={`text-xs text-center max-w-full truncate ${
+                      p.id === playerId
+                        ? 'text-parchment-100 font-semibold'
+                        : 'text-parchment-200/80'
+                    }`}
+                  >
+                    {p.name}
+                  </div>
+                </motion.li>
+              );
+            })}
           </AnimatePresence>
         </ul>
       </Card>

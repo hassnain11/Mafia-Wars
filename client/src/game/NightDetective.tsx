@@ -5,7 +5,8 @@ import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
-import { Button, Card, Medallion } from '../components/ui';
+import { Button, Card } from '../components/ui';
+import { CharacterSprite } from '../components/CharacterSprite';
 
 export function NightDetective() {
   const lobby = useGameStore((s) => s.lobby);
@@ -63,10 +64,10 @@ export function NightDetective() {
                     : 'hover:bg-night-700/40'
                 }`}
               >
-                <Medallion
-                  name={t.name}
+                <CharacterSprite
+                  role={ROLE.CIVILIAN}
                   size="md"
-                  roleColor={selected ? '#7cc0ff' : undefined}
+                  highlighted={selected}
                 />
                 <div className="text-xs text-parchment-200/90 truncate max-w-full">{t.name}</div>
               </motion.button>

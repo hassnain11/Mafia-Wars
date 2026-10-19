@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { EV, WINNER } from '@mafia/shared';
 import { useGameStore, clearPersistedSession } from '../store/gameStore';
 import { socket } from '../socket';
-import { Button, Card, Medallion } from '../components/ui';
+import { Button, Card } from '../components/ui';
+import { CharacterSprite } from '../components/CharacterSprite';
 import { ROLE_META } from '../components/RoleSeal';
 import { play } from '../audio/sfx';
 import { LogOut, RotateCcw } from 'lucide-react';
@@ -108,7 +109,7 @@ export function EndGame() {
                   transition={{ delay: 1.7 + i * 0.08 }}
                   className="py-2 flex items-center gap-3"
                 >
-                  <Medallion name={p.name} size="sm" alive={p.alive} roleColor={meta.color} />
+                  <CharacterSprite role={p.role} size="sm" alive={p.alive} />
                   <div className="flex-1">
                     <div className="font-serif tracking-wide">{p.name}</div>
                   </div>

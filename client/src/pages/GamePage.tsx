@@ -10,25 +10,42 @@ import { Discussion } from '../game/Discussion';
 import { Voting } from '../game/Voting';
 import { VoteResult } from '../game/VoteResult';
 import { EndGame } from '../game/EndGame';
+import { PlayerRoster } from '../components/PlayerRoster';
+
+// Phases where the roster strip stays pinned under the main scene.
+const ROSTER_PHASES = new Set<string>([
+  PHASE.NIGHT_MAFIA,
+  PHASE.NIGHT_DOCTOR,
+  PHASE.NIGHT_DETECTIVE,
+  PHASE.DAWN,
+  PHASE.DISCUSSION,
+  PHASE.VOTING,
+  PHASE.VOTE_TIEBREAK,
+  PHASE.VOTE_RESULT,
+]);
 
 export function GamePage() {
   const lobby = useGameStore((s) => s.lobby);
   if (!lobby) return null;
 
   const screen = pickScreen(lobby.phase);
+  const showRoster = ROSTER_PHASES.has(lobby.phase);
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={lobby.phase}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.3 }}
-      >
-        {screen}
-      </motion.div>
-    </AnimatePresence>
+    <div className="flex flex-col">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={lobby.phase}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.3 }}
+        >
+          {screen}
+        </motion.div>
+      </AnimatePresence>
+      {showRoster && <PlayerRoster />}
+    </div>
   );
 }
 

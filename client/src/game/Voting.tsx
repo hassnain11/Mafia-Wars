@@ -4,7 +4,9 @@ import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
-import { Card, Medallion } from '../components/ui';
+import { Card } from '../components/ui';
+import { CharacterSprite } from '../components/CharacterSprite';
+import { displayRoleFor } from '../lib/roleView';
 
 export function Voting() {
   const lobby = useGameStore((s) => s.lobby);
@@ -67,7 +69,7 @@ export function Voting() {
                     selected ? 'bg-blood-500/15' : ''
                   }`}
                 >
-                  <Medallion name={c.name} size="sm" />
+                  <CharacterSprite role={displayRoleFor(self, c.id)} size="sm" />
                   <div className="flex-1">
                     <div className="font-serif tracking-wide">{c.name}</div>
                     <div className="text-xs text-parchment-200/60">

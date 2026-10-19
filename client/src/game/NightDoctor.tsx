@@ -5,7 +5,8 @@ import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
-import { Button, Card, Medallion } from '../components/ui';
+import { Button, Card } from '../components/ui';
+import { CharacterSprite } from '../components/CharacterSprite';
 
 export function NightDoctor() {
   const lobby = useGameStore((s) => s.lobby);
@@ -62,10 +63,10 @@ export function NightDoctor() {
                     : 'hover:bg-night-700/40'
                 }`}
               >
-                <Medallion
-                  name={t.name}
+                <CharacterSprite
+                  role={t.id === pid ? ROLE.DOCTOR : ROLE.CIVILIAN}
                   size="md"
-                  roleColor={selected ? '#34d1a0' : undefined}
+                  highlighted={selected}
                 />
                 <div className="text-xs text-parchment-200/90 truncate max-w-full">
                   {t.name}

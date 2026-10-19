@@ -4,7 +4,8 @@ import { useGameStore } from '../store/gameStore';
 import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
-import { Card, Medallion } from '../components/ui';
+import { Card } from '../components/ui';
+import { CharacterSprite } from '../components/CharacterSprite';
 
 export function NightMafia() {
   const lobby = useGameStore((s) => s.lobby);
@@ -82,10 +83,10 @@ export function NightMafia() {
                     : 'hover:bg-night-700/40'
                 }`}
               >
-                <Medallion
-                  name={t.name}
+                <CharacterSprite
+                  role={ROLE.CIVILIAN}
                   size="md"
-                  roleColor={selected ? '#c03838' : undefined}
+                  highlighted={selected}
                 />
                 <div className="text-xs text-parchment-200/90 truncate max-w-full">{t.name}</div>
                 <AnimatePresence>
