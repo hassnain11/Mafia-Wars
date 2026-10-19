@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { EV, WINNER } from '@mafia/shared';
@@ -7,7 +7,6 @@ import { socket } from '../socket';
 import { Button, Card, Medallion } from '../components/ui';
 import { ROLE_META } from '../components/RoleSeal';
 import { play } from '../audio/sfx';
-import { EndGameScene3D } from '../cutscenes/EndGame3D';
 import { LogOut, RotateCcw } from 'lucide-react';
 
 export function EndGame() {
@@ -52,20 +51,12 @@ export function EndGame() {
 
   return (
     <div className="relative flex flex-col gap-5 py-4">
-      {result && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          <EndGameScene3D mafiaWin={isMafiaWin} />
-        </motion.div>
-      )}
+      {result && <Particles winner={isMafiaWin} />}
       <motion.div
         initial={{ opacity: 0, scale: 0.8, y: -20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 150, damping: 14 }}
-        className="relative text-center space-y-3 py-6"
+        className="relative text-center space-y-3 py-10"
       >
         <motion.div
           initial={{ opacity: 0 }}
@@ -155,3 +146,43 @@ export function EndGame() {
   );
 }
 
+function Particles({ winner }: { winner: boolean }) {
+  const bits = useMemo(
+    () =>
+      Array.from({ length: 36 }, (_, i) => ({
+        id: i,
+        x: (Math.random() - 0.5) * 400,
+        y: 100 + Math.random() * 200,
+        rot: Math.random() * 360,
+        size: 4 + Math.random() * 10,
+        delay: Math.random() * 0.6,
+      })),
+    [],
+  );
+  const color = winner ? '#c03838' : '#f3c969';
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-start justify-center overflow-hidden">
+      {bits.map((b) => (
+        <motion.div
+          key={b.id}
+          initial={{ y: -30, x: 0, opacity: 0, rotate: 0 }}
+          animate={{
+            y: [-30, 400],
+            x: [0, b.x],
+            opacity: [0, 1, 0],
+            rotate: b.rot,
+          }}
+          transition={{ delay: b.delay, duration: 2.4, ease: 'easeOut' }}
+          className="absolute top-10"
+          style={{
+            width: b.size,
+            height: b.size,
+            background: color,
+            borderRadius: '2px',
+            boxShadow: `0 0 10px ${color}80`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
