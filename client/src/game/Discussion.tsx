@@ -7,6 +7,7 @@ import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
 import { Button, Card } from '../components/ui';
 import { SpeakerPanel } from '../components/SpeakerPanel';
+import { VoiceController } from '../components/VoiceController';
 import { Send } from 'lucide-react';
 
 export function Discussion() {
@@ -44,6 +45,7 @@ export function Discussion() {
         icon="🏮"
       />
       {voiceOn && <SpeakerPanel />}
+      {voiceOn && <VoiceController />}
       {self.isSpectator && <SpectatorBanner round={lobby.round} />}
       {lobby.pinnedDawnMessage && (
         <motion.div

@@ -18,6 +18,7 @@ export const EV = {
   CAST_VOTE: 'c.castVote',
   REQUEST_REBUTTAL: 'c.requestRebuttal',
   RELEASE_REBUTTAL: 'c.releaseRebuttal',
+  RTC_SIGNAL: 'c.rtcSignal',
   RETURN_TO_LOBBY: 'c.returnToLobby',
   RECONNECT: 'c.reconnect',
 
@@ -34,6 +35,7 @@ export const EV = {
   GAME_ENDED: 's.gameEnded',
   ERROR: 's.error',
   TOAST: 's.toast',
+  RTC_RELAY: 's.rtcSignal',
 } as const;
 
 export type EventName = (typeof EV)[keyof typeof EV];

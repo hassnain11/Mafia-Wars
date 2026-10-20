@@ -21,6 +21,7 @@ import {
   RECONNECT_GRACE_MS,
   ReleaseRebuttalSchema,
   RequestRebuttalSchema,
+  RtcSignalSchema,
   ReturnToLobbySchema,
   ROLE,
   StartGameSchema,
@@ -396,6 +397,22 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
       const player = lobby.getPlayerBySocket(socket.id);
       if (!player) return;
       engine.onReleaseRebuttal(lobby, player.id);
+    });
+
+    on(socket, EV.RTC_SIGNAL, (payload) => {
+      const parsed = parse(RtcSignalSchema, payload);
+      const lobby = currentLobby(socket, manager);
+      if (!parsed || !lobby) return;
+      const sender = lobby.getPlayerBySocket(socket.id);
+      if (!sender) return;
+      const target = lobby.getPlayer(parsed.to);
+      if (!target || !target.socketId) return;
+      const sock = sockets.get(target.socketId);
+      sock?.emit(EV.RTC_RELAY, {
+        from: sender.id,
+        type: parsed.type,
+        data: parsed.data,
+      });
     });
 
     on(socket, EV.RETURN_TO_LOBBY, (payload) => {

@@ -114,6 +114,15 @@ export type CastVotePayload = z.infer<typeof CastVoteSchema>;
 export const RequestRebuttalSchema = z.object({}).strict();
 export const ReleaseRebuttalSchema = z.object({}).strict();
 
+// WebRTC signaling relay. The server does not validate the SDP/ICE
+// payload — it just forwards it to the named peer in the same lobby.
+export const RtcSignalSchema = z.object({
+  to: PlayerIdSchema,
+  type: z.enum(['offer', 'answer', 'ice']),
+  data: z.unknown(),
+});
+export type RtcSignalPayload = z.infer<typeof RtcSignalSchema>;
+
 export const ReturnToLobbySchema = z.object({}).strict();
 
 export const ReconnectSchema = z.object({
