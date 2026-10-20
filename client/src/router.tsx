@@ -7,11 +7,13 @@ import { GamePage } from './pages/GamePage';
 import { Header } from './components/Header';
 import { ToastHost } from './components/Toast';
 import { Backdrop } from './components/Backdrop';
+import { MusicController } from './components/MusicController';
 
 function Shell() {
   return (
     <div className="min-h-full flex flex-col relative">
       <Backdrop />
+      <MusicController />
       <Header />
       <main className="flex-1 w-full max-w-screen-sm mx-auto px-4 py-6 relative z-10">
         <Outlet />
