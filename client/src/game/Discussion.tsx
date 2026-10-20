@@ -6,6 +6,7 @@ import { socket } from '../socket';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { SpectatorBanner } from '../components/SpectatorBanner';
 import { Button, Card } from '../components/ui';
+import { SpeakerPanel } from '../components/SpeakerPanel';
 import { Send } from 'lucide-react';
 
 export function Discussion() {
@@ -32,6 +33,8 @@ export function Discussion() {
     setText('');
   }
 
+  const voiceOn = lobby.settings.voiceEnabled;
+
   return (
     <div className="flex flex-col gap-4 h-full">
       <PhaseHeader
@@ -40,6 +43,7 @@ export function Discussion() {
         endsAt={lobby.phaseEndsAt}
         icon="🏮"
       />
+      {voiceOn && <SpeakerPanel />}
       {self.isSpectator && <SpectatorBanner round={lobby.round} />}
       {lobby.pinnedDawnMessage && (
         <motion.div

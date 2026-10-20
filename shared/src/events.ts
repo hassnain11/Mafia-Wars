@@ -16,6 +16,8 @@ export const EV = {
   NIGHT_DETECTIVE_INVESTIGATE: 'c.night.detectiveInvestigate',
   CHAT_SEND: 'c.chatSend',
   CAST_VOTE: 'c.castVote',
+  REQUEST_REBUTTAL: 'c.requestRebuttal',
+  RELEASE_REBUTTAL: 'c.releaseRebuttal',
   RETURN_TO_LOBBY: 'c.returnToLobby',
   RECONNECT: 'c.reconnect',
 

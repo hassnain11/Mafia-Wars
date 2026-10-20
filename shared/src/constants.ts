@@ -25,6 +25,9 @@ export const CUTSCENE_MAFIA_MS = 4500;
 export const CUTSCENE_DOCTOR_MS = 4000;
 export const CUTSCENE_DETECTIVE_MS = 4000;
 
+// Voice chat: when voiceEnabled, each speaker turn runs this long.
+export const SPEAKER_SECONDS = 15;
+
 // Host-configurable timings — ranges, step, defaults.
 export const DISCUSSION_SECONDS_MIN = 30;
 export const DISCUSSION_SECONDS_MAX = 300;
@@ -52,4 +55,5 @@ export const DEFAULT_SETTINGS: Settings = {
   discussionSeconds: DISCUSSION_SECONDS_DEFAULT,
   votingSeconds: VOTING_SECONDS_DEFAULT,
   nightSeconds: NIGHT_SECONDS_DEFAULT,
+  voiceEnabled: false,
 };

@@ -4,6 +4,8 @@
 // standard mafia-game rules (see roleView.displayRoleFor).
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { Mic, MicOff } from 'lucide-react';
+import { PHASE } from '@mafia/shared';
 import { useGameStore } from '../store/gameStore';
 import { CharacterSprite } from './CharacterSprite';
 import { displayRoleFor } from '../lib/roleView';
@@ -13,6 +15,13 @@ export function PlayerRoster() {
   const self = useGameStore((s) => s.self);
   const pid = useGameStore((s) => s.playerId);
   if (!lobby) return null;
+
+  const voiceOn = lobby.settings.voiceEnabled;
+  const inDiscussion = lobby.phase === PHASE.DISCUSSION && voiceOn;
+  const discussion = inDiscussion ? lobby.discussion : undefined;
+  const activeSpeakerId = discussion?.speaker?.playerId ?? null;
+  const accusationDone = new Set(discussion?.accusationDone ?? []);
+  const rebuttalDone = new Set(discussion?.rebuttalDone ?? []);
 
   return (
     <div className="w-full mt-5 pt-3 border-t border-parchment-300/10">
@@ -24,6 +33,16 @@ export function PlayerRoster() {
             // teammates. The dedicated end-game screen does the full reveal.
             const shownRole = displayRoleFor(self, p.id);
             const isMe = p.id === pid;
+            const isActiveSpeaker = p.id === activeSpeakerId;
+            const bothTurnsUsed =
+              inDiscussion && accusationDone.has(p.id) && rebuttalDone.has(p.id);
+
+            const ringClass = isActiveSpeaker
+              ? 'ring-2 ring-emerald-400/80 shadow-[0_0_12px_rgba(52,211,160,0.6)]'
+              : isMe
+                ? 'ring-2 ring-gold-500/70 shadow-[0_0_8px_rgba(243,201,105,0.4)]'
+                : 'ring-1 ring-parchment-300/15';
+
             return (
               <motion.div
                 key={p.id}
@@ -35,11 +54,7 @@ export function PlayerRoster() {
                 className="flex flex-col items-center gap-1 min-w-[52px]"
               >
                 <div
-                  className={`relative rounded-full overflow-hidden flex items-center justify-center ${
-                    isMe
-                      ? 'ring-2 ring-gold-500/70 shadow-[0_0_8px_rgba(243,201,105,0.4)]'
-                      : 'ring-1 ring-parchment-300/15'
-                  }`}
+                  className={`relative rounded-full overflow-hidden flex items-center justify-center ${ringClass}`}
                   style={{
                     width: 48,
                     height: 48,
@@ -81,6 +96,17 @@ export function PlayerRoster() {
                   )}
                   {!p.connected && p.alive && (
                     <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-slate-500 ring-2 ring-night-950" />
+                  )}
+                  {inDiscussion && p.alive && (
+                    <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-night-900/90 ring-1 ring-parchment-300/20 flex items-center justify-center">
+                      {isActiveSpeaker ? (
+                        <Mic size={10} className="text-emerald-400 animate-pulse" />
+                      ) : bothTurnsUsed ? (
+                        <MicOff size={10} className="text-parchment-300/30" />
+                      ) : (
+                        <MicOff size={10} className="text-parchment-200/60" />
+                      )}
+                    </div>
                   )}
                 </div>
                 <div

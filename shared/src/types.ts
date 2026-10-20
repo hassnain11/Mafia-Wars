@@ -52,6 +52,25 @@ export interface Settings {
   discussionSeconds: number;
   votingSeconds: number;
   nightSeconds: number;
+  voiceEnabled: boolean;
+}
+
+export type DiscussionStage = 'accusation' | 'rebuttal' | 'closed';
+
+export interface SpeakerState {
+  playerId: string;
+  stage: DiscussionStage;
+  endsAt: number; // unix ms when this speaker's 15s turn ends
+}
+
+export interface DiscussionProgress {
+  stage: DiscussionStage;
+  speaker: SpeakerState | null;
+  // playerIds who have already consumed their turn in each stage
+  accusationDone: string[];
+  rebuttalDone: string[];
+  // snapshot of eligible speakers (alive when discussion opened), in order
+  order: string[];
 }
 
 export interface LobbyPublicState {
@@ -65,6 +84,7 @@ export interface LobbyPublicState {
   liveVotes?: Record<string, string | 'skip'>;
   tiebreakCandidates?: string[];
   mafiaPicks?: Record<string, string>;
+  discussion?: DiscussionProgress;
 }
 
 export interface SelfView {

@@ -5,6 +5,7 @@ import {
   PHASE,
   ROLE,
   ROLE_REVEAL_SECONDS,
+  SPEAKER_SECONDS,
   VOTE_RESULT_SECONDS,
   VOTE_TIEBREAK_SECONDS,
   type DawnAnnouncePayload,
@@ -14,6 +15,7 @@ import {
   type PhaseChangedPayload,
   type Role,
   type SelfView,
+  type SpeakerState,
   type VoteResultPayload,
 } from '@mafia/shared';
 import { logger } from '../util/logger.js';
@@ -75,8 +77,15 @@ export class GameEngine {
         return lobby.settings.nightSeconds * 1000;
       case PHASE.DAWN:
         return DAWN_SECONDS * 1000;
-      case PHASE.DISCUSSION:
+      case PHASE.DISCUSSION: {
+        if (lobby.settings.voiceEnabled) {
+          const alive = lobby.players.filter((p) => p.alive).length;
+          // Enough wall-clock to let every speaker use both 15s turns, plus
+          // a few seconds of buffer so the UI doesn't cut off mid-rotation.
+          return (alive * SPEAKER_SECONDS * 2 + 15) * 1000;
+        }
         return lobby.settings.discussionSeconds * 1000;
+      }
       case PHASE.VOTING:
         return lobby.settings.votingSeconds * 1000;
       case PHASE.VOTE_TIEBREAK:
@@ -101,9 +110,13 @@ export class GameEngine {
       case PHASE.DAWN:
         this.resolveNight(lobby);
         break;
+      case PHASE.DISCUSSION:
+        if (lobby.settings.voiceEnabled) this.beginAccusations(lobby);
+        break;
       case PHASE.VOTING:
       case PHASE.VOTE_TIEBREAK:
         lobby.resetVotes();
+        lobby.resetDiscussion();
         break;
       default:
         break;
@@ -286,6 +299,104 @@ export class GameEngine {
       mafiaAttempted: kill !== null,
     };
     this.io.to(lobby.code).emit(EV.DAWN_ANNOUNCE, announce);
+  }
+
+  // ---- Voice discussion ---------------------------------------------------
+
+  private beginAccusations(lobby: Lobby): void {
+    lobby.speakerTimerCancel?.();
+    const aliveSorted = lobby.players
+      .filter((p) => p.alive)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+      .map((p) => p.id);
+    lobby.speakerOrder = aliveSorted;
+    lobby.accusationIndex = 0;
+    lobby.accusationDone = [];
+    lobby.rebuttalDone = [];
+    lobby.discussionStage = 'accusation';
+    this.advanceAccusation(lobby);
+  }
+
+  private advanceAccusation(lobby: Lobby): void {
+    lobby.speakerTimerCancel?.();
+    lobby.speakerTimerCancel = null;
+    if (lobby.phase !== PHASE.DISCUSSION) return;
+
+    // Find next alive speaker still owed an accusation turn.
+    while (lobby.accusationIndex < lobby.speakerOrder.length) {
+      const id = lobby.speakerOrder[lobby.accusationIndex]!;
+      lobby.accusationIndex += 1;
+      const p = lobby.getPlayer(id);
+      if (!p || !p.alive) continue;
+      lobby.accusationDone.push(id);
+      // Bots: skip their turn instantly (no mic to use).
+      if (p.isBot) continue;
+      // Start their 15-second turn.
+      const endsAt = Date.now() + SPEAKER_SECONDS * 1000;
+      lobby.currentSpeaker = { playerId: id, stage: 'accusation', endsAt };
+      broadcastLobbyState(this.io, lobby);
+      const t = startTimer(SPEAKER_SECONDS * 1000, () => this.advanceAccusation(lobby));
+      lobby.speakerTimerCancel = t.cancel;
+      return;
+    }
+
+    // Accusations complete → open rebuttal stage (free-for-all click-to-mic).
+    lobby.discussionStage = 'rebuttal';
+    lobby.currentSpeaker = null;
+    // Auto-mark bots as having used their rebuttal (they'll never request).
+    for (const id of lobby.speakerOrder) {
+      const p = lobby.getPlayer(id);
+      if (p?.isBot && p.alive) lobby.rebuttalDone.push(id);
+    }
+    broadcastLobbyState(this.io, lobby);
+    this.maybeCloseRebuttals(lobby);
+  }
+
+  onRequestRebuttal(lobby: Lobby, playerId: string): boolean {
+    if (lobby.phase !== PHASE.DISCUSSION) return false;
+    if (lobby.discussionStage !== 'rebuttal') return false;
+    if (lobby.currentSpeaker) return false; // mic locked by someone else
+    const player = lobby.getPlayer(playerId);
+    if (!player || !player.alive || player.isBot) return false;
+    if (lobby.rebuttalDone.includes(playerId)) return false;
+    if (!lobby.speakerOrder.includes(playerId)) return false;
+
+    const endsAt = Date.now() + SPEAKER_SECONDS * 1000;
+    lobby.currentSpeaker = { playerId, stage: 'rebuttal', endsAt };
+    lobby.rebuttalDone.push(playerId);
+    broadcastLobbyState(this.io, lobby);
+    const t = startTimer(SPEAKER_SECONDS * 1000, () => this.endRebuttalTurn(lobby, playerId));
+    lobby.speakerTimerCancel = t.cancel;
+    return true;
+  }
+
+  onReleaseRebuttal(lobby: Lobby, playerId: string): boolean {
+    if (lobby.phase !== PHASE.DISCUSSION) return false;
+    if (lobby.currentSpeaker?.playerId !== playerId) return false;
+    this.endRebuttalTurn(lobby, playerId);
+    return true;
+  }
+
+  private endRebuttalTurn(lobby: Lobby, _playerId: string): void {
+    lobby.speakerTimerCancel?.();
+    lobby.speakerTimerCancel = null;
+    lobby.currentSpeaker = null;
+    broadcastLobbyState(this.io, lobby);
+    this.maybeCloseRebuttals(lobby);
+  }
+
+  private maybeCloseRebuttals(lobby: Lobby): void {
+    const eligible = lobby.speakerOrder.filter((id) => {
+      const p = lobby.getPlayer(id);
+      return p && p.alive && !p.isBot;
+    });
+    const allDone = eligible.every((id) => lobby.rebuttalDone.includes(id));
+    if (!allDone) return;
+    // Everyone finished — close discussion early, jump to voting.
+    lobby.discussionStage = 'closed';
+    lobby.currentSpeaker = null;
+    broadcastLobbyState(this.io, lobby);
+    this.enter(lobby, PHASE.VOTING);
   }
 
   // ---- Chat ---------------------------------------------------------------

@@ -3,11 +3,14 @@ import {
   DEFAULT_SETTINGS,
   MAX_PLAYERS,
   PHASE,
+  type DiscussionProgress,
+  type DiscussionStage,
   type LobbyPublicState,
   type Phase,
   type PublicPlayer,
   type Role,
   type Settings,
+  type SpeakerState,
   mafiaCountMax,
 } from '@mafia/shared';
 
@@ -43,6 +46,15 @@ export class Lobby {
   savedThisRound = false;
   lastDeadPlayerId: string | null = null;
 
+  // Voice-chat speaker state (populated only when settings.voiceEnabled during DISCUSSION)
+  discussionStage: DiscussionStage | null = null;
+  speakerOrder: string[] = [];
+  accusationIndex = 0;
+  accusationDone: string[] = [];
+  rebuttalDone: string[] = [];
+  currentSpeaker: SpeakerState | null = null;
+  speakerTimerCancel: (() => void) | null = null;
+
   constructor(code: string) {
     this.code = code;
     this.createdAt = Date.now();
@@ -57,10 +69,22 @@ export class Lobby {
     this.lastDoctorSelfSaveRound = null;
     this.savedThisRound = false;
     this.lastDeadPlayerId = null;
+    this.resetDiscussion();
     for (const p of this.players) {
       p.role = null;
       p.alive = true;
     }
+  }
+
+  resetDiscussion(): void {
+    this.speakerTimerCancel?.();
+    this.speakerTimerCancel = null;
+    this.discussionStage = null;
+    this.speakerOrder = [];
+    this.accusationIndex = 0;
+    this.accusationDone = [];
+    this.rebuttalDone = [];
+    this.currentSpeaker = null;
   }
 
   resetNightActions(): void {
@@ -184,6 +208,16 @@ export class Lobby {
     }
     if (this.phase === PHASE.VOTE_TIEBREAK) {
       state.tiebreakCandidates = this.tiebreakCandidates;
+    }
+    if (this.phase === PHASE.DISCUSSION && this.discussionStage) {
+      const progress: DiscussionProgress = {
+        stage: this.discussionStage,
+        speaker: this.currentSpeaker,
+        accusationDone: this.accusationDone,
+        rebuttalDone: this.rebuttalDone,
+        order: this.speakerOrder,
+      };
+      state.discussion = progress;
     }
     return state;
   }

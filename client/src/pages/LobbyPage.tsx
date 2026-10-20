@@ -229,6 +229,16 @@ export function LobbyPage() {
               <span>{lobby.settings.nightSeconds}s</span>
             )}
           </Row>
+          <Row label="Voice chat">
+            {isHost ? (
+              <Toggle
+                value={lobby.settings.voiceEnabled}
+                onChange={(v) => updateSetting('voiceEnabled', v)}
+              />
+            ) : (
+              <span>{lobby.settings.voiceEnabled ? 'On' : 'Off'}</span>
+            )}
+          </Row>
         </div>
       </Card>
 

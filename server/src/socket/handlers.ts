@@ -19,6 +19,8 @@ import {
   QuickMatchSchema,
   ReconnectSchema,
   RECONNECT_GRACE_MS,
+  ReleaseRebuttalSchema,
+  RequestRebuttalSchema,
   ReturnToLobbySchema,
   ROLE,
   StartGameSchema,
@@ -374,6 +376,26 @@ export function registerHandlers(io: IOServer, manager: LobbyManager): void {
         return emitError(socket, ERROR_CODE.INVALID_TARGET, errMsg.INVALID_TARGET);
       }
       engine.onCastVote(lobby, player.id, target);
+    });
+
+    on(socket, EV.REQUEST_REBUTTAL, (payload) => {
+      if (!parse(RequestRebuttalSchema, payload ?? {})) return;
+      const lobby = currentLobby(socket, manager);
+      if (!lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player) return;
+      if (!engine.onRequestRebuttal(lobby, player.id)) {
+        emitError(socket, ERROR_CODE.PHASE_MISMATCH, errMsg.PHASE_MISMATCH);
+      }
+    });
+
+    on(socket, EV.RELEASE_REBUTTAL, (payload) => {
+      if (!parse(ReleaseRebuttalSchema, payload ?? {})) return;
+      const lobby = currentLobby(socket, manager);
+      if (!lobby) return;
+      const player = lobby.getPlayerBySocket(socket.id);
+      if (!player) return;
+      engine.onReleaseRebuttal(lobby, player.id);
     });
 
     on(socket, EV.RETURN_TO_LOBBY, (payload) => {

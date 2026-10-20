@@ -79,6 +79,7 @@ export const SettingsSchema = z.object({
     .min(NIGHT_SECONDS_MIN)
     .max(NIGHT_SECONDS_MAX)
     .refine(stepRefine(SETTINGS_SECONDS_STEP), { message: stepMsg(SETTINGS_SECONDS_STEP) }),
+  voiceEnabled: z.boolean(),
 });
 
 export const UpdateSettingsSchema = SettingsSchema.partial();
@@ -109,6 +110,9 @@ export const CastVoteSchema = z.object({
   targetId: z.union([PlayerIdSchema, z.literal('skip')]),
 });
 export type CastVotePayload = z.infer<typeof CastVoteSchema>;
+
+export const RequestRebuttalSchema = z.object({}).strict();
+export const ReleaseRebuttalSchema = z.object({}).strict();
 
 export const ReturnToLobbySchema = z.object({}).strict();
 
